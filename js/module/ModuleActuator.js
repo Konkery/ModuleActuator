@@ -120,23 +120,23 @@ class ClassMiddleActuator extends ClassAncestorActuator {
     /**
      * @method
      * Метод обязывает начать работу определенного канала актуатора. 
-     * @param {Number} _ch_num - номер канала 
+     * @param {Number} _chNum - номер канала 
      * @param {Number} _arg - главный параметр, который далее автоматически проходит через сервисные функции. 
      * @param {Object} [_opts] - объект, в свойствах которого передаются остальные параметры, необходимые для запуска работы.  
      * @returns {Boolean} 
      */
-    Start(_ch_num, _arg, _opts) { }
+    Start(_chNum, _arg, _opts) { }
     /**
      * @method
      * Метод обязывает прекратить работу заданного канала. 
 
-     * @param {Number} _ch_num - номер канала, работу которого необходимо прекратить
+     * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
-    Stop(_ch_num) { }
+    Stop(_chNum) { }
     /**
      * @method
      * Метод обязывает прекратить опрос указанного канала и запустить его вновь с уже новой частотой. Возобновиться должно обновление всех каналов, которые опрашивались перед остановкой.  
-     * @param {Number} _ch_num - номер канала, частота опроса которого изменяется
+     * @param {Number} _chNum - номер канала, частота опроса которого изменяется
      * @param {Number} _period - новый вериод опроса
      */
     ChangeFreq(_freq) { }
@@ -154,11 +154,11 @@ class ClassMiddleActuator extends ClassAncestorActuator {
     /**
      * @method
      * Обязывает запустить прикладную работу актуатора, сперва выполнив его полную инициализацию, конфигурацию и прочие необходимые процедуры, обеспечив его безопасную и корректную работу
-     * @param {Number} _ch_num - номер канала
+     * @param {Number} _chNum - номер канала
      * @param {Number} _arg - главный параметр, который далее автоматически проходит через сервисные функции. 
      * @param {Object} [_opts] - объект, в свойствах которого передаются остальные параметры, необходимые для запуска работы.  
      */
-    Run(_ch_num, _arg, _opts) { }
+    Run(_chNum, _arg, _opts) { }
     /**
      * @method
      * Обеспечивает чтение с регистра
@@ -209,7 +209,7 @@ class ClassChannelActuator {
     Start(_arg, _opts) {
         let arg = this._DataRefine.TransformValue(_arg);
         arg = this._DataRefine.SuppressValue(arg);
-        this._Channels[_ch_num]._Alarms.CheckZone(arg);    
+        this._Alarms.CheckZone(arg);    
 
         return this._ThisActuator.Start(this._NumChannel, arg, _opts);
     }

@@ -34,7 +34,6 @@ class ClassBuzzer extends ClassMiddleActuator {
     /**
      * 
      * @typedef TypeBuzzerStart
-     * @property {Number} [freq]
      * @property {Number} pulseDur
      * @property {Number} prop
      * @property {Number} numRep
@@ -45,46 +44,46 @@ class ClassBuzzer extends ClassMiddleActuator {
      * @param {TypeBuzzerStart} _opts  
      */
     Start(_chNum, _arg, _opts) {
-        /*проверить переданные аргументы на валидность*/
-        let opts = this.CheckStartOpts(_opts);      
+        if (this._IsChUsed[_chNum]) return;
+
+        let opts = this.CheckStartOpts(_opts);     
         this._Freq = _arg;  
         /*-сформировать двойной звуковой сигнал */
         let Thi = opts.pulseDur; //длительность звукового сигнала
         let Tlo = Math.floor(opts.pulseDur*(1-opts.prop)/opts.prop); //длительность паузы
         this._Count = opts.numRep*2; //количество полупериодов(!) звукового сигнала
         let beep_flag = true;
+        this._IsChUsed[0] = true;
 
-        analogWrite(this._Pins[0], _arg, { freq : this._Freq }); //включить звуковой сигнал
+        analogWrite(this._Pins[0], 0.5, { freq : this._Freq }); //включить звуковой сигнал
         let beep_func = () => {
             --this._Count;
             if (this._Count > 0) {
                 if (beep_flag) {
                     digitalWrite(this._Pins[0], 1);
-                        setTimeout(beep_func, Tlo); //взвести setTimeout
-                } else {
-                    analogWrite(this._Pins[0], this.Ch0_Value, { freq: this._Freq }); //включить звук
-                        setTimeout(beep_func, Thi); //взвести setTimeout
+                    setTimeout(beep_func, Tlo); //взвести setTimeout
+                } 
+                else 
+                {
+                    analogWrite(this._Pins[0], 0.5, { freq: this._Freq }); //включить звук
+                    setTimeout(beep_func, Thi); //взвести setTimeout
                 }
                 beep_flag = !beep_flag;
             }
+            else this._IsChUsed[_chNum] = false;
         }
         setTimeout(beep_func, Thi);
     }
 
     Stop() {
         this._Count = 0;
-    }
-
-    ChangeFreq(_freq) {
-        if (typeof _freq === 'number') { //TODO: check values properly
-            this._Freq = _freq;
-            return true;
-        }
-        return false;
+        analogRead(this._Pins[0]);
+        this._IsChUsed[0] = false;
     }
     /**
-     * 
-     * @param {*} _opts 
+     * @method
+     * Метод проверяет объект с вх.параметрами на валидность и возвращает его. 
+     * @param {TypeBuzzerStart} _opts 
      * @returns {Object}
      */
     CheckStartOpts(_opts) {
@@ -94,19 +93,11 @@ class ClassBuzzer extends ClassMiddleActuator {
             prop     : _opts.prop || 0.5
         }
         
-        /*проверить переданные аргументы  на валидность*/
-        if (!(typeof (opts.pulseDur) === 'number')   ||
-            !(typeof (opts.numRep) === 'number')     ||
-            !(typeof (opts.freq) === 'number')       ||
-            !(typeof (opts.prop) === 'number')       ||
-            !(Number.isInteger(opts.pulseDur))       ||
-            !(Number.isInteger(opts.numRep))) {   
-    
-                // throw new ClassAppError(ClassBuzzer.ERROR_MSG_ARG_VALUE,
-                //                 ClassBuzzer.ERROR_CODE_ARG_VALUE);
-                throw new Error('Invalid args');
-            
-        }
+        if (typeof opts.prop !== 'number' || opts.prop !== E.clip(opts.prop, 0, 1)) throw new Error('Invalid args');
+        ['numRep', 'pulseDur'].forEach(k => {
+            if (typeof opts[k] !== 'number' || (!Number.isInteger(opts[k])) || opts[k] < 0) throw new Error('Invalid args');
+        });
+        
         return opts;
     }
 }
