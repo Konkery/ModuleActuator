@@ -3,8 +3,7 @@
  * @property {String} name
  * @property {String} type
  * @property {[String]} channelNames
- * @property {String} typeInSignal
- * @property {String} typeOutSignal
+ * @property {[String]} typeInSignals
  * @property {String} busType
  * @property {Object} manufacturingData
  * @property {Number} [address]
@@ -12,8 +11,8 @@
 
 /**
  * @class 
- * Самый "старший" предок в иерархии классов актуаторов. 
- * Собирает в себе самые базовые данные об актуаторе: переданные шину, пины и тд. Так же сохраняет его описательную характеристику: имя, тип вх. и вых. сигналов, типы шин которые можно использовать, количество каналов и тд.
+ * Базовый класс в стеке модуля. 
+ * Собирает в себе основные данные об актуаторе: переданные шину, пины и тд. Так же сохраняет его описательную характеристику: имя, тип вх. и вых. сигналов, типы шин которые можно использовать, количество каналов и тд.
  */
 class ClassAncestorActuator {
     /**
@@ -23,7 +22,7 @@ class ClassAncestorActuator {
      */
     /**
      * @constructor
-     * @param {ActuatorPropsType} _actuatorProps - объект с описательными характеристиками актуатора, который передается в метод InitSensProperties
+     * @param {ActuatorPropsType} _actuatorProps - объект с описательными характеристиками актуатора, который передается в метод InitProps
      * @param {ActuatorOptsType} _opts - объект который содержит минимальный набор параметров, необходимых для инициализации и обеспечения работы актуатора
      */
     constructor(_actuatorProps, _opts) { 
@@ -33,6 +32,8 @@ class ClassAncestorActuator {
         
         if (_opts.bus) this._Bus = _opts.bus;
         if (_opts.pins) this._Pins = _opts.pins;
+
+        this._Freq = 0;
 
         this.InitProps(_actuatorProps);
     }
@@ -47,7 +48,7 @@ class ClassAncestorActuator {
         if (typeof _actuatorProps.quantityChannel !== 'number' || _actuatorProps.quantityChannel < 1) throw new Error('Invalid QuantityChannel arg ');
         this._QuantityChannel = _actuatorProps.quantityChannel;
 
-        ['name', 'type', 'typeInSignal', 'typeOutSignal', 'channelNames', 'busTypes']
+        ['name', 'type', 'typeInSignals', 'channelNames', 'busTypes']
             .forEach(prop => {
                 if (_actuatorProps[prop] instanceof Array) {
                     _actuatorProps[prop].forEach(elem => {
@@ -73,9 +74,8 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      */
     constructor(_actuatorProps, _opts) {
         ClassAncestorActuator.apply(this, [_actuatorProps, _opts]);
-        this._Values = [];
         this._Channels = [];
-        this._IsChUsed = [];
+        this._IsChOn = [];
 
         this.InitChannels();
     }
@@ -103,62 +103,54 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      */
     InitChannels() {
         for (let i = 0; i < this._QuantityChannel; i++) {
-            try {
-                this._Channels[i] = new ClassChannelActuator(this, i);  // инициализируем и сохраняем объекты каналов    
-            } catch (e) {
-                this._Channels[i] = null;
-            }
+            this._Channels[i] = new ClassChannelActuator(this, i);  // инициализируем и сохраняем объекты каналов 
+            
+            const initOn = (i => {     //применяется IIFE для замыкания значения i (необходимо для версий Espruino, в которых поведение let отличается от стандарта)
+                const on = this.On.bind(this);
+                this.On = (_chNum, _val) => {
+                    let val = this._Channels[i]._DataRefine.TransformValue(val);
+                    val = this._Channels[i]._DataRefine.SuppressValue(val);
+                    this._Channels[i]._Alarms.CheckZone(val);  
+
+                    return on(_chNum, val);
+                };
+            })(i);
         }
-        this._IsChUsed[i] = false;
+        this._IsChOn[i] = false;
     }
     /**
      * @method
-     * Метод обязывающий провести инициализацию актуатора настройкой необходимых для его работы регистров 
+     * Обязывает провести инициализацию актуатора настройкой необходимых для его работы регистров 
      * @param {Object} [_opts] 
      */
     Init(_opts) { }
     /**
      * @method
-     * Метод обязывает начать работу определенного канала актуатора. 
+     * Обязывает начать работу определенного канала актуатора. 
      * @param {Number} _chNum - номер канала 
-     * @param {Number} _arg - главный параметр, который далее автоматически проходит через сервисные функции. 
+     * @param {Number} _arg - главный параметр, значение которого далее автоматически проходит через сервисные функции. 
      * @param {Object} [_opts] - объект, в свойствах которого передаются остальные параметры, необходимые для запуска работы.  
      * @returns {Boolean} 
      */
-    Start(_chNum, _arg, _opts) { }
+    On(_chNum, _arg, _opts) { }
     /**
      * @method
-     * Метод обязывает прекратить работу заданного канала. 
+     * Обязывает прекратить работу заданного канала. 
 
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
-    Stop(_chNum) { }
+    Off(_chNum) { }
     /**
      * @method
-     * Метод обязывает прекратить опрос указанного канала и запустить его вновь с уже новой частотой. Возобновиться должно обновление всех каналов, которые опрашивались перед остановкой.  
-     * @param {Number} _chNum - номер канала, частота опроса которого изменяется
-     * @param {Number} _period - новый вериод опроса
-     */
-    ChangeFreq(_freq) { }
-    /**
-     * @method
-     * Метод обязывающий выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
+     * Обязывает выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
      * @param {Object} [_opts] - объект с конфигурационными параметрами
      */
     ConfigureRegs(_opts) { }
     /**
      * @method
-     * Метод обязывающий выполнить перезагрузку актуатора
+     * Обязывает выполнить перезагрузку актуатора
      */
     Reset() { }
-    /**
-     * @method
-     * Обязывает запустить прикладную работу актуатора, сперва выполнив его полную инициализацию, конфигурацию и прочие необходимые процедуры, обеспечив его безопасную и корректную работу
-     * @param {Number} _chNum - номер канала
-     * @param {Number} _arg - главный параметр, который далее автоматически проходит через сервисные функции. 
-     * @param {Object} [_opts] - объект, в свойствах которого передаются остальные параметры, необходимые для запуска работы.  
-     */
-    Run(_chNum, _arg, _opts) { }
     /**
      * @method
      * Обеспечивает чтение с регистра
@@ -186,6 +178,11 @@ class ClassChannelActuator {
     constructor(actuator, num) {
         if (actuator._Channels[num] instanceof ClassChannelActuator) return actuator._Channels[num];    //если объект данного канала однажды уже был иницииализирован, то вернется ссылка, хранящаяся в объекте физического сенсора  
 
+        this._Tasks = [];
+        this._ActiveTask = null;
+        // this._ResActiveTask = null;
+        // this._RejActivetask = null;
+
         this._ThisActuator = actuator;      //ссылка на объект физического актуатора
         this._NumChannel = num;             //номер канала (начиная с 0)
         this._DataRefine = new ClassDataRefine();
@@ -198,32 +195,30 @@ class ClassChannelActuator {
      */
     get ID() { return this._ThisActuator._Name + this._NumChannel; }
 
-    get IsUsed() { return this._ThisActuator._IsChUsed[this._NumChannel]; }
-
+    get IsOn() { return this._ThisActuator._IsChOn[this._NumChannel]; }
+    /**
+     * @method
+     * Устанавливает базовые таски актутора
+     */
+    InitBaseTasks() { }
     /**
      * @method
      * Метод обязывает запустить работу актуатора
+     * @param {Number} _arg
      * @param {Object} [_opts] 
      * @returns {Boolean} 
      */
-    Start(_arg, _opts) {
-        let arg = this._DataRefine.TransformValue(_arg);
-        arg = this._DataRefine.SuppressValue(arg);
-        this._Alarms.CheckZone(arg);    
-
-        return this._ThisActuator.Start(this._NumChannel, arg, _opts);
+    On(_arg, _opts) {
+        return this._ThisActuator.On(this._NumChannel, _arg, _opts);
     }
     /**
      * @method
      * Метод прекращает работу канала актуатора.
      */
-    Stop() { return this._ThisActuator.Stop(this._NumChannel); }
-    /**
-     * @method
-     * Останавивает цикл, ответственный за опрос указанного канала и запускает его вновь с уже новой частотой. Возобновиться должно обновление всех каналов, которые опрашивались перед остановкой.  
-     * @param {Number} _period 
-     */
-    ChangeFreq(_freq) { return this._ThisActuator.ChangeFreq.call(this._ThisActuator, Array.from(arguments)); }
+    Off() { 
+        //if (this._ActiveTask) this._ResActiveTask();
+        return this._ThisActuator.Off(this._NumChannel); 
+    }
     /**
      * @method
      * Выполняет перезагрузку актуатора
@@ -231,21 +226,46 @@ class ClassChannelActuator {
     Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator, Array.from(arguments)); }
     /**
      * @method
-     * Метод который обязывает начать прикладную работу актуатора, сперва выполнив его полную инициализацию, конфигурацию и прочие необходимые процедуры, обеспечив его безопасный и корректный запуск
-     * @param {Object} _opts - параметры для запуска
-     */
-    Run(_opts) { 
-        const args = Array.from(arguments);
-        args.unshift(this._NumChannel);
-        return this._ThisActuator.Run.apply(this._ThisActuator, args);
-    }
-    /**
-     * @method
      * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
     ConfigureRegs(_opts) {
         return this._ThisActuator.ConfigureRegs.apply(this._ThisActuator, Array.from(arguments));
+    }
+    /**
+     * @method
+     * Добавляет новый таск и создает геттер, на него 
+     * @param {string} _name - имя таска
+     * @param {Function} _func - функция-таск
+     */
+    AddTask(_name, _func) {
+        //TODO validate input
+        
+        // _func._Name = _name;
+        this._Tasks[_name] = {
+            _Self: this,
+            Invoke: function() {
+                this._Self._ActiveTask = this._Self._Tasks[_name];
+                let promisified = new Promise((res, rej) => {       //промисификация переданной функции
+                    this.Resolve = res,                     //переприсваивание методов Resolve и Reject 
+                    this.Reject = rej;
+
+                    return _func.apply(this, arguments);            //функционал промиса лежит в вызове переданного функционала
+                });
+
+                return promisified;
+            },
+            Resolve: () => {},
+            Reject: () => {}
+        };
+
+        Object.defineProperty(this, _name, {
+            get: () => this._Tasks[_name]
+        });
+    }
+    RemoveTask(_name) {
+        //TODO: validate input
+        delete this._Tasks[_name]; 
     }
 }
 /**
