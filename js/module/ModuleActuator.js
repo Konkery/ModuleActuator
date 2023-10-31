@@ -107,6 +107,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
             
             const initOn = (i => {     //применяется IIFE для замыкания значения i (необходимо для версий Espruino, в которых поведение let отличается от стандарта)
                 const on = this.On.bind(this);
+                //создание декоратора над On() для трансформации
                 this.On = (_chNum, _val) => {
                     let val = this._Channels[i]._DataRefine.TransformValue(val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
@@ -178,7 +179,7 @@ class ClassChannelActuator {
     constructor(actuator, num) {
         if (actuator._Channels[num] instanceof ClassChannelActuator) return actuator._Channels[num];    //если объект данного канала однажды уже был иницииализирован, то вернется ссылка, хранящаяся в объекте физического сенсора  
 
-        this._Tasks = [];
+        this._Tasks = {};
         this._ActiveTask = null;
         // this._ResActiveTask = null;
         // this._RejActivetask = null;
@@ -196,6 +197,13 @@ class ClassChannelActuator {
     get ID() { return this._ThisActuator._Name + this._NumChannel; }
 
     get IsOn() { return this._ThisActuator._IsChOn[this._NumChannel]; }
+
+    GetActiveTask() { 
+        for (let key in this._Tasks) {
+            if (this._Tasks[key]._IsActive) return this._Tasks[key];
+        }
+        return null; 
+    }
     /**
      * @method
      * Устанавливает базовые таски актутора
@@ -244,11 +252,22 @@ class ClassChannelActuator {
         // _func._Name = _name;
         this._Tasks[_name] = {
             _Self: this,
+            _IsActive: false,
             Invoke: function() {
-                this._Self._ActiveTask = this._Self._Tasks[_name];
                 let promisified = new Promise((res, rej) => {       //промисификация переданной функции
-                    this.Resolve = res,                     //переприсваивание методов Resolve и Reject 
-                    this.Reject = rej;
+
+                    this.Resolve = () => {                          //переприсваивание методов Resolve и Reject 
+                        this._IsActive = false;
+                        res();                                      
+                    };
+                    this.Reject = () => {
+                        this._IsActive = false;
+                        rej();
+                    };
+
+                    if (this._Self.GetActiveTask()) rej('A task is already running');  
+                    
+                    this._IsActive = true;
 
                     return _func.apply(this, arguments);            //функционал промиса лежит в вызове переданного функционала
                 });
@@ -263,9 +282,13 @@ class ClassChannelActuator {
             get: () => this._Tasks[_name]
         });
     }
+    /**
+     * @method
+     * Удаляет таск по его имени
+     * @param {String} _name 
+     */
     RemoveTask(_name) {
-        //TODO: validate input
-        delete this._Tasks[_name]; 
+        return delete this._Tasks[_name]; 
     }
 }
 /**
