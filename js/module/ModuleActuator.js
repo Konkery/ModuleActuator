@@ -109,10 +109,10 @@ class ClassMiddleActuator extends ClassAncestorActuator {
                 const on = this.On.bind(this);
                 //создание декоратора над On() для трансформации
                 this.On = (_chNum, _val) => {
-                    let val = this._Channels[i]._DataRefine.TransformValue(val);
+                    let val = this._Channels[i]._DataRefine.TransformValue(_val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
                     this._Channels[i]._Alarms.CheckZone(val);  
-
+                    console.log('init on');
                     return on(_chNum, val);
                 };
             })(i);
@@ -167,6 +167,13 @@ class ClassMiddleActuator extends ClassAncestorActuator {
     Write(_reg, _val) { }
 }
 /**
+ * @typedef TypeTask
+ * @property {Boolean} _IsActive
+ * @property {Function} Invoke
+ * @property {Function} Resolve
+ * @property {Function} Reject 
+ */
+/**
  * @class
  * Класс, представляющий каждый отдельно взятый канал актуатора. При чем, каждый канал является "синглтоном" для своего родителя.  
  */
@@ -181,8 +188,6 @@ class ClassChannelActuator {
 
         this._Tasks = {};
         this._ActiveTask = null;
-        // this._ResActiveTask = null;
-        // this._RejActivetask = null;
 
         this._ThisActuator = actuator;      //ссылка на объект физического актуатора
         this._NumChannel = num;             //номер канала (начиная с 0)
@@ -193,11 +198,20 @@ class ClassChannelActuator {
     /**
      * @getter
      * Возвращает уникальный идентификатор канала
+     * @returns {String}
      */
     get ID() { return this._ThisActuator._Name + this._NumChannel; }
-
+    /**
+     * @getter
+     * Возвращает работает ли канал
+     * @returns {Boolean} 
+     */
     get IsOn() { return this._ThisActuator._IsChOn[this._NumChannel]; }
-
+    /**
+     * @method
+     * Возвращает активный в данный момент таск либо null
+     * @returns {TypeTask}
+     */
     GetActiveTask() { 
         for (let key in this._Tasks) {
             if (this._Tasks[key]._IsActive) return this._Tasks[key];
@@ -213,18 +227,16 @@ class ClassChannelActuator {
      * @method
      * Метод обязывает запустить работу актуатора
      * @param {Number} _arg
-     * @param {Object} [_opts] 
      * @returns {Boolean} 
      */
-    On(_arg, _opts) {
-        return this._ThisActuator.On(this._NumChannel, _arg, _opts);
+    On(_arg) {
+        return this._ThisActuator.On(this._NumChannel, _arg);
     }
     /**
      * @method
      * Метод прекращает работу канала актуатора.
      */
     Off() { 
-        //if (this._ActiveTask) this._ResActiveTask();
         return this._ThisActuator.Off(this._NumChannel); 
     }
     /**
@@ -247,29 +259,27 @@ class ClassChannelActuator {
      * @param {Function} _func - функция-таск
      */
     AddTask(_name, _func) {
-        //TODO validate input
-        
-        // _func._Name = _name;
+        if (typeof _name !== 'string' || typeof _func !== 'function') throw new Error('Invalid arg');
         this._Tasks[_name] = {
             _Self: this,
             _IsActive: false,
             Invoke: function() {
+                let args = arguments;
                 let promisified = new Promise((res, rej) => {       //промисификация переданной функции
 
-                    this.Resolve = () => {                          //переприсваивание методов Resolve и Reject 
+                    this.Resolve = (_val) => {                          //переприсваивание методов Resolve и Reject 
                         this._IsActive = false;
-                        res();                                      
+                        res(_val || 0);                                      
                     };
-                    this.Reject = () => {
+                    this.Reject = (_code) => {
                         this._IsActive = false;
-                        rej();
+                        rej(_code || -1);
                     };
 
-                    if (this._Self.GetActiveTask()) rej('A task is already running');  
+                    if (this._Self.GetActiveTask()) rej(-1);  
                     
                     this._IsActive = true;
-
-                    return _func.apply(this, arguments);            //функционал промиса лежит в вызове переданного функционала
+                    return _func.apply(this, args);            //функционал промиса лежит в вызове переданного функционала
                 });
 
                 return promisified;
