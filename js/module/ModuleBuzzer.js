@@ -17,23 +17,22 @@ class ClassBuzzer extends ClassMiddleActuator {
 
         this._Channels[0]._DataRefine.SetLim(200, 5000);
 
-        (() => {
-            const makeSound = this.MakeSound.bind(this);            //метод оставляется в замыкании
-            this.MakeSound = (_chNum, _freq, _opts) => {
-                //проверка и валидация аргументов 
-                const opts = {
-                    pulseDur : _opts.pulseDur || 100,
-                    numRep   : _opts.numRep   || 1,
-                    prop     : _opts.prop || 0.5
-                };
-                ['numRep', 'pulseDur', 'prop'].forEach(property => {
-                    if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
-                });
-                opts.prop = E.clip(opts.prop, 0, 1);  
-                //вызов метода
-                return makeSound(0, _freq, opts);
-            }
-        })();
+        const make_sound = this.MakeSound.bind(this);            //метод оставляется в замыкании
+        this.MakeSound = (_freq, _opts) => {
+            //проверка и валидация аргументов 
+            const opts = {
+                pulseDur : _opts.pulseDur || 100,
+                numRep   : _opts.numRep   || 1,
+                prop     : _opts.prop || 0.5
+            };
+            ['numRep', 'pulseDur', 'prop'].forEach(property => {
+                if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
+            });
+            opts.prop = E.clip(opts.prop, 0, 1); 
+            opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647); 
+            //вызов метода
+            return make_sound(_freq, opts);
+        }
 
         this.InitBaseTasks();
     }
@@ -54,55 +53,38 @@ class ClassBuzzer extends ClassMiddleActuator {
     static get ERROR_MSG_ARG_VALUE() { return `ERROR>> invalid data. ClassID: ${this.name}`; }
     /*******************************************END CONST*************************************** */
     /**
-     * @method
-     */
+    * @method
+    */
     InitBaseTasks() {
-        const beepOneLong = (freq => {
-            let args = [0, freq, { numRep: 1, pulseDur: 2000, prop: 0.5} ];
-            return this.MakeSound.apply(this, args);
-        
-        }).bind(this);            //bind функции необходим для её дальнейшей передачи в AddTask
+        const beepOneLong = freq => {
+            let args = [];
+            return this.MakeSound(freq, { numRep: 1, pulseDur: 2000, prop: 0.5 });      
+        };            //bind функции необходим для её дальнейшей передачи в AddTask
 
-        const beepTwoTimes = (freq => {
-            let args = [0, freq, { numRep: 2, pulseDur: 200, prop: 0.5} ];
-            return this.MakeSound.apply(this, args);
-        }).bind(this);
+        const beepTwice = (freq, dur) => {
+            return this.MakeSound(freq, { numRep: 2, pulseDur: dur, prop: 0.5 });
+        };
+
+        const beep10sec = freq => {
+            return this.MakeSound(freq, { numRep: 1, pulseDur: 10000, prop: 0.5 });
+        };
 
         this._Channels[0].AddTask('BeepOneLong', beepOneLong);
-        this._Channels[0].AddTask('BeepTwice', beepTwoTimes);
+        this._Channels[0].AddTask('BeepTwice', beepTwice);
+        this._Channels[0].AddTask('Beep10Sec', beep10sec);
     }
     //_arg - частота
     On(_chNum, _arg) {
         if (this._IsChOn[_chNum]) this.Off();
-
-        this._Freq = _arg;  
-        analogWrite(this._Pins[0], 0.5, { freq : this._Freq }); //включить звуковой сигнал
+        let freq = _arg;
+        // this._Freq = _arg;  
+        console.log('freq = ' + freq);
+        analogWrite(this._Pins[0], 0.5, { freq : freq }); //включить звуковой сигнал
     }
 
     Off() {
         digitalWrite(this._Pins[0], 1);
         this._IsChOn[0] = false;
-    }
-    /**
-     * @method
-     * Метод проверяет объект с вх.параметрами на валидность и возвращает его. 
-     * @param {TypeBuzzerStart} _opts 
-     * @returns {Object}
-     */
-    CheckStartOpts(_opts) {
-        const opts = {
-            pulseDur : _opts.pulseDur || 100,
-            numRep   : _opts.numRep   || 1,
-            prop     : _opts.prop || 0.5
-        }
-        
-        opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647);
-
-        if (typeof opts.prop !== 'number' || opts.prop !== E.clip(opts.prop, 0, 1)) throw new Error('Invalid args');
-        if (typeof opts.numRep !== 'number' || opts.numRep < 0 ||
-            typeof opts.pulseDur !== 'number' || opts.pulseDur < 0) throw new Error('Invalid args');
-        
-        return opts;
     }
     /**
      * @typedef TypeBuzzerStart
@@ -112,43 +94,47 @@ class ClassBuzzer extends ClassMiddleActuator {
     */  
     /**
      * 
-     * @param {Number} _chNum - номер канала (всегда 0)
      * @param {Number} _arg - частота
      * @param {TypeBuzzerStart} _opts 
      * @returns 
      */
-    MakeSound(_chNum, _arg, _opts) {
-        console.log('args');
-        console.log(arguments);
-        if (this._IsChOn[_chNum]) return;
-
-        //let opts = this.CheckStartOpts(_opts);     
-
+    MakeSound(_arg, _opts) {
+        // if (this._IsChOn[_chNum]) return;
         /*-сформировать двойной звуковой сигнал */
+        console.log(arguments);
         let Thi = _opts.pulseDur; //длительность звукового сигнала
         let Tlo = Math.floor(_opts.pulseDur*(1 - _opts.prop)/_opts.prop); //длительность паузы
         let count = _opts.numRep*2; //количество полупериодов(!) звукового сигнала
         let beep_flag = true;
         this._IsChOn[0] = true;
-
-        this.On(0, _arg) //включить звуковой сигнал
+        
         let beep_func = () => {
             --count;
-            console.log(count);
+            console.log(count, beep_flag);
             if (count > 0) {
                 if (beep_flag) {
-                    this.Off();
+                    digitalWrite(this._Pins[0], beep_flag); //выключить звук
                     setTimeout(beep_func, Tlo); //взвести setTimeout
-                } 
-                else 
-                {
+                } else {
                     this.On(0, _arg) //включить звук
                     setTimeout(beep_func, Thi); //взвести setTimeout
+                    
                 }
                 beep_flag = !beep_flag;
+            } else {
+                console.log('DONE111');
+                this._IsChOn[0] = false;
+                if (this._Channels[0].GetActiveTask()) this._Channels[0].GetActiveTask().Resolve();
+                
             }
-            else this._IsChOn[_chNum] = false;
         }
+        this.CancelSound = () => { 
+            count = 0;
+            this.Off();
+        }
+
+        console.log(`12arg = ${_arg}`);
+        this.On(0, _arg) //включить звуковой сигнал
         setTimeout(beep_func, Thi);
     }
 }
