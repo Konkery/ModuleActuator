@@ -61,11 +61,11 @@ class ClassBuzzer extends ClassMiddleActuator {
             return this.MakeSound(freq, { numRep: 1, pulseDur: (dur || 1000), prop: 0.5 });      
         };    
 
-        const beep_twice = (freq, dur) => {
+        const beep_twice = function(freq, dur) {
             return this.MakeSound(freq, { numRep: 2, pulseDur: (dur || 500), prop: 0.5 });
         };
 
-        const beep_5sec = freq => {
+        const beep_5sec = function(freq) {
             return this.MakeSound(freq, { numRep: 1, pulseDur: 5000, prop: 0.5 });
         };
 
@@ -118,7 +118,8 @@ class ClassBuzzer extends ClassMiddleActuator {
                 beep_flag = !beep_flag;
             } else {
                 this._IsChOn[0] = false;
-                if (_task) _task.Resolve(0);
+                const task = _task ? _task : this._Channels[0].GetActiveTask();
+                if (task) task.Resolve(0);
             }
         }
 

@@ -228,7 +228,7 @@ class ClassChannelActuator {
      * @method
      * Устанавливает базовые таски актутора
      */
-    InitBaseTasks() { }
+    InitTasks() { }
     /**
      * @method
      * Метод обязывает запустить работу актуатора
