@@ -17,8 +17,8 @@ class ClassBuzzer extends ClassMiddleActuator {
 
         this._Channels[0]._DataRefine.SetLim(200, 5000);
 
-        const make_sound = this.MakeSound.bind(this);            //метод оставляется в замыкании
-        this.MakeSound = (_freq, _opts) => {
+        const make_sound = this.MakeSound.bind(this);               //сохранение изначального метода 
+        this.MakeSound = (_freq, _opts) => {                        //создание декоратора к методу для валидации его аргументов
             //проверка и валидация аргументов 
             const opts = {
                 pulseDur : _opts.pulseDur || 100,
@@ -29,12 +29,12 @@ class ClassBuzzer extends ClassMiddleActuator {
                 if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
             });
             opts.prop = E.clip(opts.prop, 0, 1); 
-            opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647); 
+            opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647);  //ограничение длины импульса максимальным знчением, которое может быть передано в setTimeout
             //вызов метода
             return make_sound(_freq, opts);
         }
 
-        this.InitBaseTasks();
+        this.InitTasks();
     }
     /*******************************************CONST********************************************/
     /**
@@ -55,30 +55,28 @@ class ClassBuzzer extends ClassMiddleActuator {
     /**
     * @method
     */
-    InitBaseTasks() {
-        const beepOneLong = freq => {
-            let args = [];
-            return this.MakeSound(freq, { numRep: 1, pulseDur: 2000, prop: 0.5 });      
-        };            //bind функции необходим для её дальнейшей передачи в AddTask
+    InitTasks() {
+        const beep_once = function(freq, dur) {
+            // console.log(arguments[arguments.length-1];
+            return this.MakeSound(freq, { numRep: 1, pulseDur: (dur || 1000), prop: 0.5 });      
+        };    
 
-        const beepTwice = (freq, dur) => {
-            return this.MakeSound(freq, { numRep: 2, pulseDur: dur, prop: 0.5 });
+        const beep_twice = (freq, dur) => {
+            return this.MakeSound(freq, { numRep: 2, pulseDur: (dur || 500), prop: 0.5 });
         };
 
-        const beep10sec = freq => {
-            return this.MakeSound(freq, { numRep: 1, pulseDur: 10000, prop: 0.5 });
+        const beep_5sec = freq => {
+            return this.MakeSound(freq, { numRep: 1, pulseDur: 5000, prop: 0.5 });
         };
 
-        this._Channels[0].AddTask('BeepOneLong', beepOneLong);
-        this._Channels[0].AddTask('BeepTwice', beepTwice);
-        this._Channels[0].AddTask('Beep10Sec', beep10sec);
+        this._Channels[0].AddTask('BeepOneLong', beep_once);
+        this._Channels[0].AddTask('BeepTwice', beep_twice);
+        this._Channels[0].AddTask('Beep5Sec', beep_5sec);
     }
     //_arg - частота
     On(_chNum, _arg) {
         if (this._IsChOn[_chNum]) this.Off();
         let freq = _arg;
-        // this._Freq = _arg;  
-        console.log('freq = ' + freq);
         analogWrite(this._Pins[0], 0.5, { freq : freq }); //включить звуковой сигнал
     }
 
@@ -98,44 +96,39 @@ class ClassBuzzer extends ClassMiddleActuator {
      * @param {TypeBuzzerStart} _opts 
      * @returns 
      */
-    MakeSound(_arg, _opts) {
-        // if (this._IsChOn[_chNum]) return;
+    MakeSound(_arg, _opts, _task) {
         /*-сформировать двойной звуковой сигнал */
-        console.log(arguments);
         let Thi = _opts.pulseDur; //длительность звукового сигнала
         let Tlo = Math.floor(_opts.pulseDur*(1 - _opts.prop)/_opts.prop); //длительность паузы
-        let count = _opts.numRep*2; //количество полупериодов(!) звукового сигнала
+        this._Count = _opts.numRep*2;                                     //количество полупериодов(!) звукового сигнала
         let beep_flag = true;
         this._IsChOn[0] = true;
         
         let beep_func = () => {
-            --count;
-            console.log(count, beep_flag);
-            if (count > 0) {
+            --this._Count;
+            if (this._Count > 0) {
                 if (beep_flag) {
-                    digitalWrite(this._Pins[0], beep_flag); //выключить звук
-                    setTimeout(beep_func, Tlo); //взвести setTimeout
+                    digitalWrite(this._Pins[0], beep_flag);               //выключить звук
+                    setTimeout(beep_func, Tlo);                           //взвести setTimeout
                 } else {
-                    this.On(0, _arg) //включить звук
-                    setTimeout(beep_func, Thi); //взвести setTimeout
+                    this.On(0, _arg)                                      //включить звук
+                    setTimeout(beep_func, Thi);                           //взвести setTimeout
                     
                 }
                 beep_flag = !beep_flag;
             } else {
-                console.log('DONE111');
                 this._IsChOn[0] = false;
-                if (this._Channels[0].GetActiveTask()) this._Channels[0].GetActiveTask().Resolve();
-                
+                if (_task) _task.Resolve(0);
             }
         }
-        this.CancelSound = () => { 
-            count = 0;
-            this.Off();
-        }
 
-        console.log(`12arg = ${_arg}`);
         this.On(0, _arg) //включить звуковой сигнал
         setTimeout(beep_func, Thi);
+    }
+
+    Cancel() { 
+        this._Count = 0;
+        this.Off();
     }
 }
 
