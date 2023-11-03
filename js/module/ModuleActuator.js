@@ -112,7 +112,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
                     let val = this._Channels[i]._DataRefine.TransformValue(_val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
                     this._Channels[i]._Alarms.CheckZone(val);  
-                    console.log('init on');
+
                     return on(_chNum, val);
                 };
             })(i);
@@ -141,6 +141,12 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
     Off(_chNum) { }
+    /**
+     * @method
+     * Стандартный метод для досрочного завершения работы тасков канала
+     * @param {Number} _chNum 
+     */
+    Cancel(_chNum) { }
     /**
      * @method
      * Обязывает выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
@@ -256,15 +262,21 @@ class ClassChannelActuator {
      * @method
      * Добавляет новый таск и создает геттер, на него 
      * @param {string} _name - имя таска
-     * @param {Function} _func - функция-таск
+     * @param {Function} func - функция-таск
+     * @param {Function} _cancelFunc - функция для прерывания работы таска
      */
-    AddTask(_name, _func) {
+    AddTask(_name, _func, _cancelFunc) {
         if (typeof _name !== 'string' || typeof _func !== 'function') throw new Error('Invalid arg');
-        this._Tasks[_name] = {
+        let cancelFunc = (typeof _cancelFunc === 'function') ? _cancelFunc : this.Cancel.bind(this);               //Если cancel-функция не была передана, берется ссылка на функцию по-умолчанию 
+
+        const func = _func.bind(this._ThisActuator);       //привязка функции к контексту основного класса  
+
+        this._Tasks[_name] = {                             //сохранение объекта таска в поле _Tasks по имени
             _Self: this,
             _IsActive: false,
             Invoke: function() {
-                let args = arguments;
+                let args = [].slice.call(arguments);
+                args.push(this);
                 let promisified = new Promise((res, rej) => {       //промисификация переданной функции
 
                     this.Resolve = (_val) => {                          //переприсваивание методов Resolve и Reject 
@@ -279,26 +291,35 @@ class ClassChannelActuator {
                     if (this._Self.GetActiveTask()) rej(-1);  
                     
                     this._IsActive = true;
-                    return _func.apply(this, args);            //функционал промиса лежит в вызове переданного функционала
+                    return func.apply(this, args);            //функционал промиса лежит в вызове переданного функционала
                 });
 
                 return promisified;
             },
             Resolve: () => {},
-            Reject: () => {}
+            Reject: () => {},
+            Cancel: () => cancelFunc()
         };
 
-        Object.defineProperty(this, _name, {
+        Object.defineProperty(this, _name, {                //создание геттера, ссылающегося на инициализированный таск
             get: () => this._Tasks[_name]
         });
     }
     /**
      * @method
-     * Удаляет таск по его имени
+     * Удаляет таск из коллекции по его имени
      * @param {String} _name 
+     * @returns {Boolean} 
      */
     RemoveTask(_name) {
         return delete this._Tasks[_name]; 
+    }
+    /**
+     * @method
+     * Стандартный метод для досрочного завершения работы тасков канала
+     */
+    Cancel() {
+        return this._ThisActuator.Cancel(this._NumChannel);
     }
 }
 /**
