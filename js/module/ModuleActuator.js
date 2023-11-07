@@ -33,8 +33,6 @@ class ClassAncestorActuator {
         if (_opts.bus) this._Bus = _opts.bus;
         if (_opts.pins) this._Pins = _opts.pins;
 
-        this._Freq = 0;
-
         this.InitProps(_actuatorProps);
     }
     /**
@@ -129,15 +127,13 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @method
      * Обязывает начать работу определенного канала актуатора. 
      * @param {Number} _chNum - номер канала 
-     * @param {Number} _arg - главный параметр, значение которого далее автоматически проходит через сервисные функции. 
-     * @param {Object} [_opts] - объект, в свойствах которого передаются остальные параметры, необходимые для запуска работы.  
+     * @param {Number} _freq - частота, главный параметр, значение которого далее автоматически проходит через сервисные функции мат.обработки. 
      * @returns {Boolean} 
      */
-    On(_chNum, _arg, _opts) { }
+    On(_chNum, _freq) { }
     /**
      * @method
      * Обязывает прекратить работу заданного канала. 
-
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
     Off(_chNum) { }
@@ -172,13 +168,6 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      */
     Write(_reg, _val) { }
 }
-/**
- * @typedef TypeTask
- * @property {Boolean} _IsActive
- * @property {Function} Invoke
- * @property {Function} Resolve
- * @property {Function} Reject 
- */
 /**
  * @class
  * Класс, представляющий каждый отдельно взятый канал актуатора. При чем, каждый канал является "синглтоном" для своего родителя.  
@@ -232,11 +221,11 @@ class ClassChannelActuator {
     /**
      * @method
      * Метод обязывает запустить работу актуатора
-     * @param {Number} _arg
+     * @param {Number} _freq
      * @returns {Boolean} 
      */
-    On(_arg) {
-        return this._ThisActuator.On(this._NumChannel, _arg);
+    On(_freq) {
+        return this._ThisActuator.On(this._NumChannel, _freq);
     }
     /**
      * @method
@@ -260,46 +249,14 @@ class ClassChannelActuator {
     }
     /**
      * @method
-     * Добавляет новый таск и создает геттер, на него 
+     * Добавляет новый таск и создает геттер на него 
      * @param {string} _name - имя таска
      * @param {Function} func - функция-таск
-     * @param {Function} _cancelFunc - функция для прерывания работы таска
      */
-    AddTask(_name, _func, _cancelFunc) {
+    AddTask(_name, _func) {
         if (typeof _name !== 'string' || typeof _func !== 'function') throw new Error('Invalid arg');
-        let cancelFunc = (typeof _cancelFunc === 'function') ? _cancelFunc : this.Cancel.bind(this);               //Если cancel-функция не была передана, берется ссылка на функцию по-умолчанию 
 
-        const func = _func.bind(this._ThisActuator);       //привязка функции к контексту основного класса  
-
-        this._Tasks[_name] = {                             //сохранение объекта таска в поле _Tasks по имени
-            _Self: this,
-            _IsActive: false,
-            Invoke: function() {
-                let args = [].slice.call(arguments);
-                args.push(this);
-                let promisified = new Promise((res, rej) => {       //промисификация переданной функции
-
-                    this.Resolve = (_val) => {                          //переприсваивание методов Resolve и Reject 
-                        this._IsActive = false;
-                        res(_val || 0);                                      
-                    };
-                    this.Reject = (_code) => {
-                        this._IsActive = false;
-                        rej(_code || -1);
-                    };
-
-                    if (this._Self.GetActiveTask()) rej(-1);  
-                    
-                    this._IsActive = true;
-                    return func.apply(this, args);            //функционал промиса лежит в вызове переданного функционала
-                });
-
-                return promisified;
-            },
-            Resolve: () => {},
-            Reject: () => {},
-            Cancel: () => cancelFunc()
-        };
+        this._Tasks[_name] = new ClassTask(this, _func);
 
         Object.defineProperty(this, _name, {                //создание геттера, ссылающегося на инициализированный таск
             get: () => this._Tasks[_name]
@@ -313,13 +270,6 @@ class ClassChannelActuator {
      */
     RemoveTask(_name) {
         return delete this._Tasks[_name]; 
-    }
-    /**
-     * @method
-     * Стандартный метод для досрочного завершения работы тасков канала
-     */
-    Cancel() {
-        return this._ThisActuator.Cancel(this._NumChannel);
     }
 }
 /**
@@ -448,4 +398,77 @@ class ClassAlarms {
         }
     }
 }
+/**
+ * @class
+ * Представляет собой таск актуатора - обертку над прикладной функцией
+ */
+class ClassTask {
+    /**
+     * @constructor
+     * @param {ClassChannelActuator} _channel - объект канала актуатора
+     * @param {Function} _func - функция, реализующая прикладную
+     */
+    constructor(_channel, _func) {                          //сохранение объекта таска в поле _Tasks по имени
+        this.name = 'ClassTask';
+        this._Channel = _channel;
+        this._IsActive = false;
+
+        this._Func = _func.bind(_channel);
+    }
+    /**
+     * @method
+     * Запускает выполнение таска
+     */
+    Invoke() {
+        let args = [].slice.call(arguments);        //преобразование всех переданных аргументов в массив
+        let lastArg = args[args.length-1];
+        if (this._Channel._Tasks[lastArg] instanceof ClassTask) {         //если последний переданный аргумент* - объект класса ClassTask
+            return this._Func.apply(this._Channel, args);       //вызов функции таким образом, что она будет выполняться в контексте переданного выше аргумента (*) 
+        }
+        // args.push(this);                                        //иначе в массив аргументов добавляется сслыка на данный таск
+        //Инициализация метода досрочной остановки выполнения таска  (происходит в методе Invoke из за особенностей привязки контекста в Espruino)
+        this.Cancel = () => {
+            if (this._Channel._Interval) clearInterval(this._Channel._Interval);
+            this._Channel.Off();
+            this.Resolve(1);
+        };
+
+        let promisified = new Promise((res, rej) => {       //над переданной функцией инициализируется промис-обертка, колбэки resolve()/reject() которого должны быть вызваны при завершении выполнения таска
+
+            this.resolve = res;
+            this.reject = rej;
+
+            if (this._Channel.GetActiveTask()) return this.Reject(-1);      //если уже запущен хотя бы один таск, вызов очередного отклоняется с кодом -1
+            
+            this._IsActive = true;
+
+            return this._Func.apply(this._Channel, args);                   //вызов функции, выполняемой в контексте объекта-канала
+        });
+        return promisified;
+    }
+    /**
+     * @method
+     * Закрывает промис-обертку вызовом его колбэка resolve() с передачей числового кода (по умолчанию 0)
+     * @param {Number} _code - код завершения
+     */
+    Resolve(_code) {
+        this._IsActive = false;
+        return this.resolve(_code || 0);
+    }
+    /**
+     * @method
+     * Закрывает промис-обертку вызовом его колбэка reject() с передачей числового кода (по умолчанию 0)
+     * @param {Number} _code - код завершения
+     */
+    Reject(_code) {
+        this._IsActive = false;
+        return this.reject(_code || -1);
+    }
+    /**
+     * @method
+     * Вызывает досрочную остановку выполнения таска
+     */
+    Cancel() { }
+}
+
 exports = ClassMiddleActuator;
