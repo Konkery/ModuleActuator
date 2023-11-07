@@ -17,23 +17,6 @@ class ClassBuzzer extends ClassMiddleActuator {
 
         this._Channels[0]._DataRefine.SetLim(200, 5000);
 
-        const make_sound = this.MakeSound.bind(this);               //сохранение изначального метода 
-        this.MakeSound = (_freq, _opts) => {                        //создание декоратора к методу для валидации его аргументов
-            //проверка и валидация аргументов 
-            const opts = {
-                pulseDur : _opts.pulseDur || 100,
-                numRep   : _opts.numRep   || 1,
-                prop     : _opts.prop || 0.5
-            };
-            ['numRep', 'pulseDur', 'prop'].forEach(property => {
-                if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
-            });
-            opts.prop = E.clip(opts.prop, 0, 1); 
-            opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647);  //ограничение длины импульса максимальным знчением, которое может быть передано в setTimeout
-            //вызов метода
-            return make_sound(_freq, opts);
-        }
-
         this.InitTasks();
     }
     /*******************************************CONST********************************************/
@@ -56,22 +39,42 @@ class ClassBuzzer extends ClassMiddleActuator {
     * @method
     */
     InitTasks() {
-        const beep_once = function(freq, dur) {
-            // console.log(arguments[arguments.length-1];
-            return this.MakeSound(freq, { numRep: 1, pulseDur: (dur || 1000), prop: 0.5 });      
-        };    
+        this._Channels[0].AddTask('PlaySound', (_opts) => {
+            const opts = this.GetValidatedOpts(_opts);
+            /*-сформировать двойной звуковой сигнал */
+            const freq = opts.freq;
+            let Thi = opts.pulseDur; //длительность звукового сигнала
+            let Tlo = Math.floor(opts.pulseDur*(1 - opts.prop)/opts.prop); //длительность паузы
+            count = opts.numRep*2;                                     //количество полупериодов(!) звукового сигнала
+            let beep_flag = true;
 
-        const beep_twice = function(freq, dur) {
-            return this.MakeSound(freq, { numRep: 2, pulseDur: (dur || 500), prop: 0.5 });
-        };
+            let beep_func = () => {
+                --count;
+                if (count > 0) {
+                    if (beep_flag) {
+                        this.Off();                                           //выключить звук
+                        this._Interval = setTimeout(beep_func, Tlo);          //взвести setTimeout
+                    } else {
+                        this.On(0, freq);                                     //включить звук
+                        this._Interval = setTimeout(beep_func, Thi);          //взвести setTimeout
+                    }
+                    beep_flag = !beep_flag;
+                } else {
+                    this.GetActiveTask().Resolve(0);               //завершение таска
+                };
+            };
 
-        const beep_5sec = function(freq) {
-            return this.MakeSound(freq, { numRep: 1, pulseDur: 5000, prop: 0.5 });
-        };
+            this.On(0, freq) //включить звуковой сигнал
+            this._Interval = setTimeout(beep_func, Thi);
+        });
 
-        this._Channels[0].AddTask('BeepOneLong', beep_once);
-        this._Channels[0].AddTask('BeepTwice', beep_twice);
-        this._Channels[0].AddTask('Beep5Sec', beep_5sec);
+        this._Channels[0].AddTask('BeepOnce', (freq, dur) => {
+            this._Tasks.PlaySound.Invoke({ freq: freq, numRep: 1, pulseDur: dur, prop: 0.5 }, 'BeepOnce');
+        });    
+
+        this._Channels[0].AddTask('BeepTwice', (freq, dur) => {
+            return this._Channels[0]._Tasks.PlaySound.Invoke({ freq: freq, numRep: 2, pulseDur: dur, prop: 0.5 }, 'BeepTwice');
+        });;
     }
     //_arg - частота
     On(_chNum, _arg) {
@@ -86,50 +89,20 @@ class ClassBuzzer extends ClassMiddleActuator {
     }
     /**
      * @typedef TypeBuzzerStart
+     * @property {Number} freq     - частота
      * @property {Number} numRep   - количество повторений [1...n]
      * @property {Number} pulseDur - длительность звучания в ms [50<=x<infinity]
-     * @property {Number} prop    - пропорция ЗВУК/ТИШИНА на одном периоде [0<x<=1]
+     * @property {Number} prop     - пропорция ЗВУК/ТИШИНА на одном периоде [0<x<=1]
     */  
-    /**
-     * 
-     * @param {Number} _arg - частота
-     * @param {TypeBuzzerStart} _opts 
-     * @returns 
-     */
-    MakeSound(_arg, _opts, _task) {
-        /*-сформировать двойной звуковой сигнал */
-        let Thi = _opts.pulseDur; //длительность звукового сигнала
-        let Tlo = Math.floor(_opts.pulseDur*(1 - _opts.prop)/_opts.prop); //длительность паузы
-        this._Count = _opts.numRep*2;                                     //количество полупериодов(!) звукового сигнала
-        let beep_flag = true;
-        this._IsChOn[0] = true;
-        
-        let beep_func = () => {
-            --this._Count;
-            if (this._Count > 0) {
-                if (beep_flag) {
-                    digitalWrite(this._Pins[0], beep_flag);               //выключить звук
-                    setTimeout(beep_func, Tlo);                           //взвести setTimeout
-                } else {
-                    this.On(0, _arg)                                      //включить звук
-                    setTimeout(beep_func, Thi);                           //взвести setTimeout
-                    
-                }
-                beep_flag = !beep_flag;
-            } else {
-                this._IsChOn[0] = false;
-                const task = _task ? _task : this._Channels[0].GetActiveTask();
-                if (task) task.Resolve(0);
-            }
-        }
 
-        this.On(0, _arg) //включить звуковой сигнал
-        setTimeout(beep_func, Thi);
-    }
-
-    Cancel() { 
-        this._Count = 0;
-        this.Off();
+    GetValidatedOpts(_opts) {
+        //проверка и валидация аргументов 
+        ['freq', 'numRep', 'pulseDur', 'prop'].forEach(property => {
+            if (typeof _opts[property] !== 'number' || _opts[property] < 0) throw new Error('Invalid args');
+        });
+        _opts.prop = E.clip(_opts.prop, 0, 1); 
+        _opts.pulseDur = E.clip(_opts.pulseDur, 0, 2147483647);  //ограничение длины импульса максимальным знчением, которое может быть передано в setTimeout
+        return _opts;
     }
 }
 
