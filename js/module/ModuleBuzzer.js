@@ -1,4 +1,11 @@
 /**
+ * @typedef TypeBuzzerStart
+ * @property {Number} freq     - частота
+ * @property {Number} numRep   - количество повторений [1...n]
+ * @property {Number} pulseDur - длительность звучания в ms [50<=x<infinity]
+ * @property {Number} prop     - пропорция ЗВУК/ТИШИНА на одном периоде [0<x<=1]
+*/  
+/**
  * @class
  * Класс ClassBuzzer реализует логику работы пьезодатчика.
  */
@@ -37,10 +44,17 @@ class ClassBuzzer extends ClassMiddleActuator {
     /*******************************************END CONST*************************************** */
     /**
     * @method
+    * Инициализирует стандартные таски модуля
     */
     InitTasks() {
-        this._Channels[0].AddTask('PlaySound', (_opts) => {
-            const opts = this.GetValidatedOpts(_opts);
+        this._Channels[0].AddTask('PlaySound', (opts) => {
+            //проверка и валидация аргументов 
+            ['freq', 'numRep', 'pulseDur', 'prop'].forEach(property => {
+                if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
+            });
+            opts.prop = E.clip(opts.prop, 0, 1); 
+            opts.pulseDur = E.clip(opts.pulseDur, 0, 2147483647);  //ограничение длины импульса максимальным знчением, которое может быть передано в setTimeout
+
             /*-сформировать двойной звуковой сигнал */
             const freq = opts.freq;
             let Thi = opts.pulseDur; //длительность звукового сигнала
@@ -55,7 +69,7 @@ class ClassBuzzer extends ClassMiddleActuator {
                         this.Off();                                           //выключить звук
                         this._Interval = setTimeout(beep_func, Tlo);          //взвести setTimeout
                     } else {
-                        this.On(0, freq);                                     //включить звук
+                        this.On(freq);                                     //включить звук
                         this._Interval = setTimeout(beep_func, Thi);          //взвести setTimeout
                     }
                     beep_flag = !beep_flag;
@@ -64,7 +78,7 @@ class ClassBuzzer extends ClassMiddleActuator {
                 };
             };
 
-            this.On(0, freq) //включить звуковой сигнал
+            this.On(freq) //включить звуковой сигнал
             this._Interval = setTimeout(beep_func, Thi);
         });
 
@@ -73,36 +87,19 @@ class ClassBuzzer extends ClassMiddleActuator {
         });    
 
         this._Channels[0].AddTask('BeepTwice', (freq, dur) => {
-            return this._Channels[0]._Tasks.PlaySound.Invoke({ freq: freq, numRep: 2, pulseDur: dur, prop: 0.5 }, 'BeepTwice');
-        });;
+            this._Tasks.PlaySound.Invoke({ freq: freq, numRep: 2, pulseDur: dur, prop: 0.5 }, 'BeepTwice');
+        });
     }
     //_arg - частота
-    On(_chNum, _arg) {
+    On(_chNum, _freq) {
+        console.log(_freq);
         if (this._IsChOn[_chNum]) this.Off();
-        let freq = _arg;
-        analogWrite(this._Pins[0], 0.5, { freq : freq }); //включить звуковой сигнал
+        analogWrite(this._Pins[0], 0.5, { freq : _freq }); //включить звуковой сигнал
     }
 
     Off() {
         digitalWrite(this._Pins[0], 1);
         this._IsChOn[0] = false;
-    }
-    /**
-     * @typedef TypeBuzzerStart
-     * @property {Number} freq     - частота
-     * @property {Number} numRep   - количество повторений [1...n]
-     * @property {Number} pulseDur - длительность звучания в ms [50<=x<infinity]
-     * @property {Number} prop     - пропорция ЗВУК/ТИШИНА на одном периоде [0<x<=1]
-    */  
-
-    GetValidatedOpts(_opts) {
-        //проверка и валидация аргументов 
-        ['freq', 'numRep', 'pulseDur', 'prop'].forEach(property => {
-            if (typeof _opts[property] !== 'number' || _opts[property] < 0) throw new Error('Invalid args');
-        });
-        _opts.prop = E.clip(_opts.prop, 0, 1); 
-        _opts.pulseDur = E.clip(_opts.pulseDur, 0, 2147483647);  //ограничение длины импульса максимальным знчением, которое может быть передано в setTimeout
-        return _opts;
     }
 }
 
