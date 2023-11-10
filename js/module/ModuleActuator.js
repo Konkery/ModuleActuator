@@ -107,10 +107,10 @@ class ClassMiddleActuator extends ClassAncestorActuator {
                 const on = this.On.bind(this);
                 //создание декоратора над On() для трансформации
                 this.On = (_chNum, _val) => {
+                    console.log(_val);
                     let val = this._Channels[i]._DataRefine.TransformValue(_val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
                     this._Channels[i]._Alarms.CheckZone(val);  
-
                     return on(_chNum, val);
                 };
             })(i);
@@ -137,12 +137,6 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
     Off(_chNum) { }
-    /**
-     * @method
-     * Стандартный метод для досрочного завершения работы тасков канала
-     * @param {Number} _chNum 
-     */
-    Cancel(_chNum) { }
     /**
      * @method
      * Обязывает выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
@@ -205,7 +199,7 @@ class ClassChannelActuator {
     /**
      * @method
      * Возвращает активный в данный момент таск либо null
-     * @returns {TypeTask}
+     * @returns {ClassTask}
      */
     GetActiveTask() { 
         for (let key in this._Tasks) {
@@ -238,7 +232,7 @@ class ClassChannelActuator {
      * @method
      * Выполняет перезагрузку актуатора
      */
-    Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator, Array.from(arguments)); }
+    Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator.Reset, Array.from(arguments)); }
     /**
      * @method
      * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
