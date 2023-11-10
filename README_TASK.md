@@ -27,9 +27,10 @@
 
 ### Методы
 <div style = "color: #555">
+
 - <mark style="background-color: lightblue">Invoke(...args)</mark> - запускает выполнение таска;
 - <mark style="background-color: lightblue">Resolve(_code)</mark> - деактивирует таск как успешно завершенный;
-- <mark style="background-color: lightblue">Reject(_code_)</mark> - деактивирует таск как завершенный с ошибкой; 
+- <mark style="background-color: lightblue">Reject(_code)</mark> - деактивирует таск как завершенный с ошибкой; 
 - <mark style="background-color: lightblue">Cancel()</mark> - завершает данный таск в процессе исполнения.
 </div>
 

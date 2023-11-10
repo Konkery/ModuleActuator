@@ -1,6 +1,6 @@
 <div style = "font-family: 'Open Sans', sans-serif; font-size: 16px">
 
-# ClassAncestorSensor 
+# ClassAncestorActuator 
 <div style = "color: #555">
     <p align="center">
     <img src="./res/logo.png" width="400" title="hover text">
@@ -16,9 +16,9 @@
 ### Конструктор
 <div style = "color: #555">
 
-Конструктор принимает два параметра: объект типа **SensorPropsType** и объект типа **SensorOptsType**.
+Конструктор принимает два параметра: объект типа **ActuatorPropsType** и объект типа **ActuatorOptsType**.
 
-Образец параметра *_sensor_props* типа **SensorPropsType**: 
+Образец параметра *_actuatorProps* типа **ActuatorPropsType**: 
 ```js
 const act_props = ({
     name: "Buzzer",

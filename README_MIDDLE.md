@@ -33,13 +33,13 @@
 ### Методы
 <div style = "color: #555">
 
-- <mark style="background-color: lightblue">InitСhannels(_sensor_props)</mark> - инициализирует объекты каналов, запускает обработку аргументов, поступающих на метод On();
+- <mark style="background-color: lightblue">InitСhannels()</mark> - инициализирует объекты каналов, запускает обработку аргументов, поступающих на метод On();
 - <mark style="background-color: lightblue">Init(_opts)</mark> - обязывает провести инициализацию актуатора настройкой необходимых для его работы регистров;
 - <mark style="background-color: lightblue">ConfigureRegs(_opts)</mark> - обязывает выполнить дополнительную конфигурацию актуатора. Это настройки, которые необходимы для ряда задач, но могут переопределяться в процессе работы, и потому вынесены из метода Init();
-- <mark style="background-color: lightblue">GetChannel(_ch_num)</mark> - возвращает объект i-го канала;
+- <mark style="background-color: lightblue">GetChannel(_chNum)</mark> - возвращает объект i-го канала;
 
-- <mark style="background-color: lightblue">On(_ch_num, freq)</mark> - обязывает подать сигнал на актуатор, тем самым запустив его работу;
-- <mark style="background-color: lightblue">Off(_ch_num)</mark> - обязывает прекратить подачу сигнала на актуатор;
+- <mark style="background-color: lightblue">On(_chNum, _freq)</mark> - обязывает подать сигнал на актуатор, тем самым запустив его работу;
+- <mark style="background-color: lightblue">Off(_chNum)</mark> - обязывает прекратить подачу сигнала на актуатор;
 - <mark style="background-color: lightblue">Reset()</mark> - обязывает выполнить перезагрузку актуатора;
 - <mark style="background-color: lightblue">Read(_reg)</mark> - обязывает выполнить чтение с регистра;
 - <mark style="background-color: lightblue">Write(_reg, _val)</mark> - обязывает выполнить запись в регистр.

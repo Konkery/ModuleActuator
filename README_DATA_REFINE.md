@@ -13,7 +13,7 @@
 Сервисный класс из стека [ModuleActuator](README.md). Назначен для обеспечении математической обработки вх.сигнала актуатора. Включает в себя:
 - Супрессию входных значений;
 - Трансформацию линейной функцией.
-Объект класса автоматически инициализируется в поле *DataRefine* класса [ClassChannelActuator](./README_CHANNEL.md). Методы для преобразования данных вызываются из декоратора к методу *On(_freq)* класса канала.
+Объект класса автоматически инициализируется в поле *_DataRefine* класса [ClassChannelActuator](./README_CHANNEL.md). Методы для преобразования данных вызываются из декоратора к методу *On(_freq)* класса канала.
 </div>
 
 ### Поля
@@ -26,9 +26,9 @@
 <div style = "color: #555">
 
 - <mark style="background-color: lightblue">SetOutLim(_limLow, _limHigh)</mark> - устанавливает значения ограничителей входных значений;
-- <mark style="background-color: lightblue">SupressOutValue(val)</mark> - возвращает число, прошедшее через супрессорную функцию;
+- <mark style="background-color: lightblue">SupressOutValue(_val)</mark> - возвращает число, прошедшее через супрессорную функцию;
 - <mark style="background-color: lightblue">SetTransmissionOut(_k, _b)</mark> - устанавливает коэффициенты k и b трансформирующей функции канала;
-- <mark style="background-color: lightblue">TransformOutValue(val)</mark> - возвращает значение, прошедшее через трансформирующую функцию.
+- <mark style="background-color: lightblue">TransformOutValue(_val)</mark> - возвращает значение, прошедшее через трансформирующую функцию.
 
 <div align='left'>
     <img src="./res/math.png" alt="Image not found">
@@ -43,7 +43,7 @@
 ### Зависимости
 <div style = "color: #555">
 
-- <mark style="background-color: lightblue">[**ClassAppError**](https://github.com/Konkery/ModuleAppError/blob/main/README.md)</mark>
+- <mark style="background-color: lightblue">[ClassAppError](https://github.com/Konkery/ModuleAppError/blob/main/README.md)</mark>
 </div>
 
 </div>
