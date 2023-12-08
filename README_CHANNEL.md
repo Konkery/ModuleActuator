@@ -31,7 +31,8 @@
 
 - <mark style="background-color: lightblue">CountChannels</mark> - возвращает количество корректно инициализированных каналов типа **ClassChannelActuator**;
 - <mark style="background-color: lightblue">ID</mark> - возвращает идентификатор актуатора (канала);
-- <mark style="background-color: lightblue">IsOn</mark> - указывает, подается ли сигнал на канал в данный момент.
+- <mark style="background-color: lightblue">IsOn</mark> - указывает, подается ли сигнал на канал в данный момент;
+- <mark style="background-color: lightblue">ActiveTask()</mark> - возвращает активный в данный момент таск либо null.
 </div>
 
 ### Методы
@@ -43,10 +44,13 @@
 
 Перечисленные выше методы ссылаются на методы, объявленные в **ClassMiddleActuator** и реализованные в прикладном классе акутатора. Их развернутое описание [по ссылке](./README_MIDDLE.md#методы).
 
+- <mark style="background-color: lightblue">InitTasks()</mark> - инициализирует базовые таски актуатора;
 - <mark style="background-color: lightblue">AddTask(_name, _func)</mark> - создает новый таск на основе переданной функции и помещает его в коллекцию по переданному имени. Создает одноименный геттер на данный таск;
 - <mark style="background-color: lightblue">RemoveTask(_name)</mark> - удаляет таск по его идентификатору;
-- <mark style="background-color: lightblue">GetActiveTask()</mark> - возвращает активный в данный момент таск либо null;
-- <mark style="background-color: lightblue">InitTasks()</mark> - инициализирует базовые таски актуатора.
+- <mark style="background-color: lightblue">RunTask(_name, ...args)</mark> - запускает выполнение таска по его идентификатору;
+- <mark style="background-color: lightblue">ResolveTask(_code)</mark> - Устанавливает текущий активный таск как выполненный;
+- <mark style="background-color: lightblue">CancelTask()</mark> - прерывает выполнение текущего таска. Не рекомендуется к использованию, так как может вызвать ошибки.
+
 </div>
 
 ### Зависимости

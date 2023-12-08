@@ -48,6 +48,7 @@ class ClassBuzzer extends ClassMiddleActuator {
     */
     InitTasks() {
         this._Channels[0].AddTask('PlaySound', (opts) => {
+            console.log(this);
             //проверка и валидация аргументов 
             ['freq', 'numRep', 'pulseDur', 'prop'].forEach(property => {
                 if (typeof opts[property] !== 'number' || opts[property] < 0) throw new Error('Invalid args');
@@ -74,7 +75,7 @@ class ClassBuzzer extends ClassMiddleActuator {
                     }
                     beep_flag = !beep_flag;
                 } else {
-                    this.GetActiveTask().Resolve(0);               //завершение таска
+                    this.ResolveTask(0);               //завершение таска
                 };
             };
 
@@ -82,12 +83,34 @@ class ClassBuzzer extends ClassMiddleActuator {
             this._Interval = setTimeout(beep_func, Thi);
         });
 
-        this._Channels[0].AddTask('BeepOnce', (freq, dur) => {
-            this._Tasks.PlaySound.Invoke({ freq: freq, numRep: 1, pulseDur: dur, prop: 0.5 }, 'BeepOnce');
+        this._Channels[0].AddTask('BeepOnce', function(freq, dur) {
+            if (!Number.isInteger(dur) || dur < 0) throw new Error('Invalid args');
+
+            this.On(freq);
+            setTimeout(() => {
+                this.Off();
+                this.ResolveTask(0);
+            }, dur);
         });    
 
         this._Channels[0].AddTask('BeepTwice', (freq, dur) => {
-            this._Tasks.PlaySound.Invoke({ freq: freq, numRep: 2, pulseDur: dur, prop: 0.5 }, 'BeepTwice');
+            console.log(freq, dur);
+            if (!Number.isInteger(dur) || dur < 0) throw new Error('Invalid args');
+        
+            this.On(freq);          //вкл звук 
+
+            setTimeout(() => {
+                this.Off();
+            }, dur);                //выкл звук через один полупериод
+
+            setTimeout(() => {
+                this.On(freq);
+            }, dur*2);              //вкл звук через два полупериода
+
+            setTimeout(() => {
+                this.Off();         //выкл через 3 полупериода
+                setTimeout(() => { this.ResolveTask(0); }, dur*4);  //деактивировать таск через 2 полных периода
+            }, dur*3);
         });
     }
     //_arg - частота

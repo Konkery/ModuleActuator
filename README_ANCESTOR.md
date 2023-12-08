@@ -54,7 +54,7 @@ const _opts = {
 
 - <mark style="background-color: lightblue">_Bus</mark> - используемая шина;
 - <mark style="background-color: lightblue">_Pins</mark> - массив используемых актуатором пинов;
-- <mark style="background-color: lightblue">_Address</mark> - адресс актуатора на шине;
+- <mark style="background-color: lightblue">_Address</mark> - адрес актуатора на шине;
 - <mark style="background-color: lightblue">_Bus</mark> - используемая шина;
 - <mark style="background-color: lightblue">_Name</mark> - имя актуатора;
 - <mark style="background-color: lightblue">_Type</mark> - тип устройства (для всех актуаторов имеет значение "actuator");

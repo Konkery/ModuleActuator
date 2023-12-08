@@ -24,7 +24,7 @@
 
 1. Предотвращать вызов тасков, которые не могут начать выполняться в данный момент;
 2. Отменять выполнение последнего вызванного таска;
-3. Составлять цепочки с поочередным вызовом тасков.
+3. Составлять цепочки с упорядоченным вызовом тасков.
 
 Также заложенный в модуль функционал включает в себя поэтапную автоматическую обработку вх. сигнала на канал актуатора, что повышает надежность и удобство работы. Этот процесс включает в себя следующие этапы:
 - Супрессия: входные данные подвергаются ограничению с использованием супрессорной функции. Это обеспечивает то, что значения с актуатора находятся в заданных пределах, что позволяет учесть границы работы актуатора или предотвратить определенные ошибки; 
@@ -55,8 +55,8 @@
 
 ```js
 //Импорт зависимостей
-const ClassAppError     = require('ModuleAppError');
-    require('ModuleAppMath').is();
+const ClassAppError     = require('ModuleAppError.min');
+    require('ModuleAppMath.min').is();
 const ClassMiddleActuator = require('ModuleActuator.min');
 const ClassBuzzer         = require('ModuleBuzzer.min');
 
@@ -100,13 +100,13 @@ setTimeout(() => {
 
 ```js
 //Вызов одного пика через основной, универсальный таск 
-ch.PlaySound.Invoke({ freq: 300, numRep: 1, prop: 0.5, pulseDur: 800 })  
+ch.RunTask('PlaySound', { freq: 300, numRep: 1, prop: 0.5, pulseDur: 800 });  
 .then(
     // Вызов пика через таск, принимающий частоту и длину импульса 
-    () => ch.BeepOnce.Invoke(500, 800) 
+    () => ch.RunTask('BeepOnce', 500, 800);
 ).then(
     // вызов двойного звукового сигнала
-    () => ch.BeepTwice.Invoke(800, 500)                   
+    () => ch.RunTask('BeepTwice', 800, 500);                   
 ).then(
     () => { console.log('Done!'); }
 );
@@ -124,27 +124,12 @@ ch.AddTask('Beep3sec', (freq) => {
     setTimeout(() => {
         this.Off();
         //Завершение выполнения таска
-        this.Beep3sec.Resolve(0);
+        this.ResolveTask(0);
     }, 3000);
 });
 
-ch.Beep3sec.Invoke(500)
+ch.RunTask('Beep3sec', 500);
     .then(() => print(`Done after 3 sec!`));
-```
-
-</div>
-
-#### Добавление нового таска, который сводится к вызову другого таска
-<div style = "color: #555">
-
-```js
-ch.AddTask('Beep5sec', (freq) => {
-    // Beep5sec возвращает вызванный таск PlaySound с определением некоторых константных свойств  
-    // Последним аргументом передается идентификатор внешнего таска 
-    return this.PlaySound.Invoke({ freq: freq, numRep: 1, pulseDur: 5000, prop: 0.5 }, 'Beep5sec');
-});
-
-ch.Beep5sec.Invoke(500);
 ```
 
 </div>
@@ -153,10 +138,10 @@ ch.Beep5sec.Invoke(500);
 <div style = "color: #555">
 
 ```js
-ch.BeepTwice.Invoke(500, 1200);
+ch.RunTask('BeepTwice', 500, 1200);
 
 setTimeout(() => {
-    ch.BeepTwice.Cancel();
+    ch.CancelTask();
 }, 1000);
 ```
 

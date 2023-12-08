@@ -107,7 +107,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
                 const on = this.On.bind(this);
                 //создание декоратора над On() для трансформации
                 this.On = (_chNum, _val) => {
-                    console.log(_val);
+                    console.log(`on: ${_chNum}, ${_val}`);
                     let val = this._Channels[i]._DataRefine.TransformValue(_val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
                     this._Channels[i]._Alarms.CheckZone(val);  
@@ -201,7 +201,7 @@ class ClassChannelActuator {
      * Возвращает активный в данный момент таск либо null
      * @returns {ClassTask}
      */
-    GetActiveTask() { 
+    get ActiveTask() { 
         for (let key in this._Tasks) {
             if (this._Tasks[key]._IsActive) return this._Tasks[key];
         }
@@ -249,12 +249,8 @@ class ClassChannelActuator {
      */
     AddTask(_name, _func) {
         if (typeof _name !== 'string' || typeof _func !== 'function') throw new Error('Invalid arg');
-
+        
         this._Tasks[_name] = new ClassTask(this, _func);
-
-        Object.defineProperty(this, _name, {                //создание геттера, ссылающегося на инициализированный таск
-            get: () => this._Tasks[_name]
-        });
     }
     /**
      * @method
@@ -264,6 +260,40 @@ class ClassChannelActuator {
      */
     RemoveTask(_name) {
         return delete this._Tasks[_name]; 
+    }
+    /**
+     * @method
+     * Запускает таск по его имени с передачей аргументов.
+     * @param {String} _name - идентификатор таска
+     * @param {...any} _args - аргументы, которые передаются в таск.
+     * Примечание! аргументы передаются в метод напрямую (НЕ как массив)  
+     * @returns {Boolean}
+     */
+    RunTask(_name, _args) {
+        if (!this._Tasks[_name]) return false;
+        let args = [].slice.call(arguments, 1);
+        return this._Tasks[_name].Invoke(args);
+    }
+    /**
+     * @method
+     * Устанавливает текущий активный таск как выполненный.
+     * @param {Number} _code 
+     */
+    ResolveTask(_code) {
+        this.ActiveTask.Resolve(_code || 0);
+    }
+    /**
+     * @method
+     * Прерывает выполнение текущего таска. 
+     * Примечание: не рекомендуется к использованию, так как может вызвать ошибки
+     * @returns {Boolean}
+     */
+    CancelTask() {
+        if (!this.ActiveTask) return false;
+
+        this.ActiveTask.Resolve();
+        this.Off();
+        return true;
     }
 }
 /**
@@ -407,32 +437,20 @@ class ClassTask {
         this._Channel = _channel;
         this._IsActive = false;
 
-        this._Func = _func.bind(_channel);
+        this._Func = _func.bind(this._Channel);
     }
     /**
      * @method
      * Запускает выполнение таска
      */
-    Invoke() {
-        let args = [].slice.call(arguments);        //преобразование всех переданных аргументов в массив
-        let lastArg = args[args.length-1];
-        if (this._Channel._Tasks[lastArg] instanceof ClassTask) {         //если последний переданный аргумент* - объект класса ClassTask
-            return this._Func.apply(this._Channel, args);       //вызов функции таким образом, что она будет выполняться в контексте переданного выше аргумента (*) 
-        }
-        // args.push(this);                                        //иначе в массив аргументов добавляется сслыка на данный таск
-        //Инициализация метода досрочной остановки выполнения таска  (происходит в методе Invoke из за особенностей привязки контекста в Espruino)
-        this.Cancel = () => {
-            if (this._Channel._Interval) clearInterval(this._Channel._Interval);
-            this._Channel.Off();
-            this.Resolve(1);
-        };
-
+    Invoke(args) {
+        console.log(this._Channel instanceof ClassChannelActuator);
         let promisified = new Promise((res, rej) => {       //над переданной функцией инициализируется промис-обертка, колбэки resolve()/reject() которого должны быть вызваны при завершении выполнения таска
 
             this.resolve = res;
             this.reject = rej;
-
-            if (this._Channel.GetActiveTask()) return this.Reject(-1);      //если уже запущен хотя бы один таск, вызов очередного отклоняется с кодом -1
+            
+            if (this._Channel.ActiveTask) return this.Reject(-1);      //если уже запущен хотя бы один таск, вызов очередного отклоняется с кодом -1
             
             this._IsActive = true;
 
@@ -458,11 +476,6 @@ class ClassTask {
         this._IsActive = false;
         return this.reject(_code || -1);
     }
-    /**
-     * @method
-     * Вызывает досрочную остановку выполнения таска
-     */
-    Cancel() { }
 }
 
 exports = ClassMiddleActuator;
