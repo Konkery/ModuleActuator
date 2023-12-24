@@ -34,11 +34,11 @@
 <div style = "color: #555">
 
 - <mark style="background-color: lightblue">InitСhannels()</mark> - инициализирует объекты каналов, запускает обработку аргументов, поступающих на метод On();
-- <mark style="background-color: lightblue">Init(_opts)</mark> - обязывает провести инициализацию актуатора настройкой необходимых для его работы регистров;
+- <mark style="background-color: lightblue">GetInfo()</mark> - обязывает вернуть объект, хранящий информацию об актуаторе;
+- <mark style="background-color: lightblue">Init(_opts)</mark> - обязывает выполнить инициализацию актуатора, применив необходимые для его работы настройки;
 - <mark style="background-color: lightblue">ConfigureRegs(_opts)</mark> - обязывает выполнить дополнительную конфигурацию актуатора. Это настройки, которые необходимы для ряда задач, но могут переопределяться в процессе работы, и потому вынесены из метода Init();
 - <mark style="background-color: lightblue">GetChannel(_chNum)</mark> - возвращает объект i-го канала;
-
-- <mark style="background-color: lightblue">On(_chNum, _freq)</mark> - обязывает подать сигнал на актуатор, тем самым запустив его работу;
+- <mark style="background-color: lightblue">On(_chNum, _val)</mark> - обязывает начать работу определенного канала актуатора;
 - <mark style="background-color: lightblue">Off(_chNum)</mark> - обязывает прекратить подачу сигнала на актуатор;
 - <mark style="background-color: lightblue">Reset()</mark> - обязывает выполнить перезагрузку актуатора;
 - <mark style="background-color: lightblue">Read(_reg)</mark> - обязывает выполнить чтение с регистра;

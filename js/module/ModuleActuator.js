@@ -119,7 +119,13 @@ class ClassMiddleActuator extends ClassAncestorActuator {
     }
     /**
      * @method
-     * Обязывает провести инициализацию актуатора настройкой необходимых для его работы регистров 
+     * Метод, обязывающий вернуть объект, хранящий информацию об актуаторе
+     * @returns {Object}
+     */
+    GetInfo() { return {}; }
+    /**
+     * @method
+     * Обязывает выполнить инициализацию актуатора, применив необходимые для его работы настройки
      * @param {Object} [_opts] 
      */
     Init(_opts) { }
@@ -127,40 +133,40 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @method
      * Обязывает начать работу определенного канала актуатора. 
      * @param {Number} _chNum - номер канала 
-     * @param {Number} _freq - частота, главный параметр, значение которого далее автоматически проходит через сервисные функции мат.обработки. 
+     * @param {Number} _val - некоторый параметр, значение которого далее автоматически проходит через сервисные функции мат.обработки. В зависимости от реализации каждого отдельно взятого модуля может разниться.  
      * @returns {Boolean} 
      */
-    On(_chNum, _freq) { }
+    On(_chNum, _val) { throw new Error('Not implemented'); }
     /**
      * @method
      * Обязывает прекратить работу заданного канала. 
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
-    Off(_chNum) { }
+    Off(_chNum)      { throw new Error('Not implemented'); }
     /**
      * @method
      * Обязывает выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
      * @param {Object} [_opts] - объект с конфигурационными параметрами
      */
-    ConfigureRegs(_opts) { }
+    Configure(_opts) { throw new Error('Not implemented'); }
     /**
      * @method
      * Обязывает выполнить перезагрузку актуатора
      */
-    Reset() { }
+    Reset()          { throw new Error('Not implemented'); }
     /**
      * @method
      * Обеспечивает чтение с регистра
      * @param {Number} _reg 
      */
-    Read(_reg) { }
+    Read(_reg)       { throw new Error('Not implemented'); }
     /**
      * @method
      * Обеспечивает запись в регистр
      * @param {Number} _reg 
      * @param {Number} _val 
      */
-    Write(_reg, _val) { }
+    Write(_reg, _val) { throw new Error('Not implemented'); }
 }
 /**
  * @class
@@ -239,7 +245,7 @@ class ClassChannelActuator {
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
     ConfigureRegs(_opts) {
-        return this._ThisActuator.ConfigureRegs.apply(this._ThisActuator, Array.from(arguments));
+        return this._ThisActuator.Configure.apply(this._ThisActuator, Array.from(arguments));
     }
     /**
      * @method
