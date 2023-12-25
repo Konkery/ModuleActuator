@@ -6,20 +6,19 @@
  * @property {[String]} typeInSignals
  * @property {String} busType
  * @property {Object} manufacturingData
+ */
+/**
+ * @typedef ActuatorOptsType
+ * @property {any} bus - шина
+ * @property {[Pin]} pins - массив пинов
  * @property {Number} [address]
  */
-
 /**
  * @class 
  * Базовый класс в стеке модуля. 
  * Собирает в себе основные данные об актуаторе: переданные шину, пины и тд. Так же сохраняет его описательную характеристику: имя, тип вх. и вых. сигналов, типы шин которые можно использовать, количество каналов и тд.
  */
 class ClassAncestorActuator {
-    /**
-     * @typedef ActuatorOptsType
-     * @property {any} bus - шина
-     * @property {[Pin]} pins - массив пинов
-     */
     /**
      * @constructor
      * @param {ActuatorPropsType} _actuatorProps - объект с описательными характеристиками актуатора, который передается в метод InitProps
@@ -74,6 +73,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
         ClassAncestorActuator.apply(this, [_actuatorProps, _opts]);
         this._Channels = [];
         this._IsChOn = [];
+        this._Offsets = [];
 
         this.InitChannels();
     }
@@ -244,7 +244,7 @@ class ClassChannelActuator {
      * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
-    ConfigureRegs(_opts) {
+    Configure(_opts) {
         return this._ThisActuator.Configure.apply(this._ThisActuator, Array.from(arguments));
     }
     /**
