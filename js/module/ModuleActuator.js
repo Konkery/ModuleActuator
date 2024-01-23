@@ -3,15 +3,18 @@
  * @property {String} name
  * @property {String} type
  * @property {[String]} channelNames
- * @property {[String]} typeInSignals
- * @property {String} busType
+ * @property {[String]} typeInSignal
+ * @property {String} busTypes
  * @property {Object} manufacturingData
  */
+
 /**
  * @typedef ActuatorOptsType
  * @property {any} bus - шина
  * @property {[Pin]} pins - массив пинов
- * @property {Number} [address]
+ * @property {Number} [address] - адрес на шине
+ * @property {Number} minRange - мин. значение работы актуатора
+ * @property {Number} maxRange - макс. значение работы актуатора 
  */
 /**
  * @class 
@@ -31,6 +34,8 @@ class ClassAncestorActuator {
         
         if (_opts.bus) this._Bus = _opts.bus;
         if (_opts.pins) this._Pins = _opts.pins;
+        if (_opts.maxRange) this._MaxRange = _opts.maxRange;
+        if (_opts.minRange) this._MinRange = _opts.minRange;
 
         this.InitProps(_actuatorProps);
     }
@@ -40,23 +45,39 @@ class ClassAncestorActuator {
      * @param {ActuatorPropsType} _actuatorProps 
      */
     InitProps(_actuatorProps) { 
-        const changeNotation = str => `_${str[0].toUpperCase()}${str.substr(1)}`;       //converts "propName" -> "_PropName"
-
-        if (typeof _actuatorProps.quantityChannel !== 'number' || _actuatorProps.quantityChannel < 1) throw new Error('Invalid QuantityChannel arg ');
-        this._QuantityChannel = _actuatorProps.quantityChannel;
-
-        ['name', 'type', 'typeInSignals', 'channelNames', 'busTypes']
-            .forEach(prop => {
-                if (_actuatorProps[prop] instanceof Array) {
-                    _actuatorProps[prop].forEach(elem => {
-                        if (typeof elem !== 'string') throw new Error('Incorrect sensor property');
-                    });
-                }
-                else if (typeof _actuatorProps[prop] !== 'string') throw new Error('Incorrect sensor property');
-                this[changeNotation(prop)] = _actuatorProps[prop];
-            });
-
+        this._Id                = _actuatorProps.id;
+        this._QuantityChannel   = _actuatorProps.quantityChannel;
+        this._Name              = _actuatorProps.name
+        this._Type              = _actuatorProps.type;
+        this._TypeInSignals      = _actuatorProps.typeInSignals;
+        this._ChannelNames      = _actuatorProps.channelNames;
+        this._BusTypes          = _actuatorProps.busTypes;
         this._ManufacturingData = _actuatorProps.manufacturingData || {};
+        
+        const isStrArr = (arr) => {
+            if (Array.isArray(arr)) {
+                return arr.every(i => typeof i === 'string');
+            }
+            return false;
+        }
+
+        let isValid = {
+            _Id: (p) => typeof p === 'string',
+            _Name: (p) => typeof p === 'string', 
+            _Type: (p) => typeof p === 'string',
+            _QuantityChannel: (p) => typeof p === 'number' && p > 0,
+            _TypeInSignals: isStrArr,
+            _ChannelNames: isStrArr,
+            _BusTypes: (p) => isStrArr(p) || p.length === 0,
+            // minRanges: (p) => {
+            //     return (Array.isArray(p) && typeof p[0] === 'number' && typeof p[1] === 'number');
+            // },
+            _ManufacturingData: (p) => typeof p === 'object'
+        };
+
+        ['_Id', '_Name', '_Type', '_TypeInSignal', '_ChannelNames', '_BusTypes'].forEach(propName => {
+            if (this[propName] && !isValid[propName](this[propName])) throw new Error(`Invalid prop: ${propName}`);
+        });
     }
 }
 /**
@@ -74,9 +95,13 @@ class ClassMiddleActuator extends ClassAncestorActuator {
         this._Channels = [];
         this._IsChOn = [];
         this._Offsets = [];
+        this._Values = [];
 
         this.InitChannels();
+        
+        Object.emit('new-device', this);
     }
+    get ID() { return this._Id; }
     /**
      * @getter
      * Возвращает количество инстанцированных объектов каналов актуатора.
@@ -107,7 +132,6 @@ class ClassMiddleActuator extends ClassAncestorActuator {
                 const on = this.On.bind(this);
                 //создание декоратора над On() для трансформации
                 this.On = (_chNum, _val) => {
-                    console.log(`on: ${_chNum}, ${_val}`);
                     let val = this._Channels[i]._DataRefine.TransformValue(_val);
                     val = this._Channels[i]._DataRefine.SuppressValue(val);
                     this._Channels[i]._Alarms.CheckZone(val);  
@@ -117,6 +141,11 @@ class ClassMiddleActuator extends ClassAncestorActuator {
         }
         this._IsChOn[i] = false;
     }
+    /**
+     * @method
+     * Обязывает инициализировать стандратные таски модуля
+     */
+    InitTasks() {}
     /**
      * @method
      * Метод, обязывающий вернуть объект, хранящий информацию об актуаторе
@@ -190,12 +219,13 @@ class ClassChannelActuator {
         this._Alarms = new ClassAlarms();
         actuator._Channels[num] = this;
     }
+    get Value() { return this._ThisActuator._Values[this._NumChannel]; }
     /**
      * @getter
      * Возвращает уникальный идентификатор канала
      * @returns {String}
      */
-    get ID() { return this._ThisActuator._Name + this._NumChannel; }
+    get ID() { return `${this._ThisActuator.ID}-${this._NumChannel}`; }
     /**
      * @getter
      * Возвращает работает ли канал
@@ -238,14 +268,14 @@ class ClassChannelActuator {
      * @method
      * Выполняет перезагрузку актуатора
      */
-    Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator.Reset, Array.from(arguments)); }
+    Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator, arguments); }
     /**
      * @method
      * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
     Configure(_opts) {
-        return this._ThisActuator.Configure.apply(this._ThisActuator, Array.from(arguments));
+        return this._ThisActuator.Configure.apply(this._ThisActuator, arguments);
     }
     /**
      * @method
