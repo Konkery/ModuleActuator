@@ -21,8 +21,9 @@ class ClassBuzzer extends ClassMiddleActuator {
     constructor(_actuatorProps, _opts) {
         this.name = 'ClassBuzzer';                                  //переопределение имени класса
         ClassMiddleActuator.apply(this, [_actuatorProps, _opts]);   //вызов родительского конструктора
-
-        this._Channels[0]._DataRefine.SetLim(200, 5000);
+        
+        if (typeof this._MaxRange !== 'number' || 
+            typeof this._MinRange !== 'number') throw new Error('Invalid range values'); 
 
         this.InitTasks();
     }
@@ -113,11 +114,16 @@ class ClassBuzzer extends ClassMiddleActuator {
             }, dur*3);
         });
     }
-    //_arg - частота
-    On(_chNum, _freq) {
-        console.log(_freq);
+    //_val - коэффициент от 0 до 1
+    On(_chNum, _val) {
+        if (typeof _val !== 'number') throw new Error();
+        _val = E.clip(_val, 0, 1);
+        const proportion = (x, in_min, in_max, out_min, out_max) => {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
         if (this._IsChOn[_chNum]) this.Off();
-        analogWrite(this._Pins[0], 0.5, { freq : _freq }); //включить звуковой сигнал
+        let freq = proportion(_val, 0, 1, this._MinRange, this._MaxRange);
+        analogWrite(this._Pins[0], 0.5, { freq : freq, soft: true }); //включить звуковой сигнал
     }
 
     Off() {
