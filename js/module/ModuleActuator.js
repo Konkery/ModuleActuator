@@ -27,15 +27,15 @@ class ClassAncestorActuator {
      * @param {ActuatorPropsType} _actuatorProps - объект с описательными характеристиками актуатора, который передается в метод InitProps
      * @param {ActuatorOptsType} _opts - объект который содержит минимальный набор параметров, необходимых для инициализации и обеспечения работы актуатора
      */
-    constructor(_actuatorProps, _opts) { 
+    constructor(_opts, _actuatorProps) { 
         if (_opts.pins) _opts.pins.forEach(pin => {
             if (!(+Pin(pin))) throw new Error('Not a pin');
         });
         
         if (_opts.bus) this._Bus = _opts.bus;
         if (_opts.pins) this._Pins = _opts.pins;
-        if (_opts.maxRange) this._MaxRange = _opts.maxRange;
-        if (_opts.minRange) this._MinRange = _opts.minRange;
+        // if (_opts.maxRange) this._MaxRange = _opts.maxRange;
+        // if (_opts.minRange) this._MinRange = _opts.minRange;
 
         this.InitProps(_actuatorProps);
     }
@@ -90,8 +90,8 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @param {ActuatorPropsType} _actuatorProps 
      * @param {ActuatorOptsType} _opts
      */
-    constructor(_actuatorProps, _opts) {
-        ClassAncestorActuator.apply(this, [_actuatorProps, _opts]);
+    constructor(_opts, _actuatorProps) {
+        ClassAncestorActuator.apply(this, [_opts, _actuatorProps]);
         this._Channels = [];
         this._IsChOn = [];
         this._Offsets = [];
@@ -99,7 +99,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
 
         this.InitChannels();
         
-        Object.emit('new-device', this);
+        // Object.emit('new-device', this);
     }
     get ID() { return this._Id; }
     /**
@@ -117,8 +117,9 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      */
     GetChannel(_num) {
         const num = _num;
-        if (this._Channels[num] instanceof ClassChannelActuator) return this._Channels[num];
-        return null;
+        return this._Channels[num];
+        // if (this._Channels[num] instanceof ClassChannelActuator) return this._Channels[num];
+        // return null;
     }
     /**
      * @method
@@ -225,7 +226,7 @@ class ClassChannelActuator {
      * Возвращает уникальный идентификатор канала
      * @returns {String}
      */
-    get ID() { return `${this._ThisActuator.ID}-${this._NumChannel}`; }
+    get ID() { return `${this._ThisActuator.ID}-${('0'+this._ThisActuator._QuantityChannel).slice(-2)}-${('0'+this._NumChannel).slice(-2)}`; }
     /**
      * @getter
      * Возвращает работает ли канал
@@ -247,7 +248,7 @@ class ClassChannelActuator {
      * @method
      * Устанавливает базовые таски актутора
      */
-    InitTasks() { }
+    InitTasks() { return this._ThisActuator.InitTasks(this._NumChannel); }
     /**
      * @method
      * Метод обязывает запустить работу актуатора
