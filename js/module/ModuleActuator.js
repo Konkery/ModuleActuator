@@ -1,13 +1,7 @@
 /**
  * @typedef ActuatorPropsType - объект хранящий описательные характеристики актуатора
- * @property {String} name
- * @property {String} type
- * @property {[String]} channelNames
- * @property {[String]} typeInSignal
- * @property {String} busTypes
- * @property {Object} manufacturingData
- */
 
+ */
 /**
  * @typedef ActuatorOptsType
  * @property {any} bus - шина
@@ -15,6 +9,12 @@
  * @property {Number} [address] - адрес на шине
  * @property {Number} minRange - мин. значение работы актуатора
  * @property {Number} maxRange - макс. значение работы актуатора 
+ * @property {String} name
+ * @property {String} type
+ * @property {[String]} channelNames
+ * @property {[String]} typeInSignals
+ * @property {String} busTypes
+ * @property {Object} manufacturingData
  */
 /**
  * @class 
@@ -24,32 +24,27 @@
 class ClassAncestorActuator {
     /**
      * @constructor
-     * @param {ActuatorPropsType} _actuatorProps - объект с описательными характеристиками актуатора, который передается в метод InitProps
-     * @param {ActuatorOptsType} _opts - объект который содержит минимальный набор параметров, необходимых для инициализации и обеспечения работы актуатора
+     * @param {ActuatorOptsType} _opts - объект который содержит все параметры, и описательные характеристики, необходимые для инициализации и обеспечения работы актуатора
      */
-    constructor(_opts, _actuatorProps) { 
-        if (_opts.pins) _opts.pins.forEach(pin => {
-            if (!(+Pin(pin))) throw new Error('Not a pin');
-        });
-        
+    constructor(_opts) {         
         if (_opts.bus) this._Bus = _opts.bus;
         if (_opts.pins) this._Pins = _opts.pins;
         // if (_opts.maxRange) this._MaxRange = _opts.maxRange;
         // if (_opts.minRange) this._MinRange = _opts.minRange;
 
-        this.InitProps(_actuatorProps);
+        this.InitProps(_opts);
     }
     /**
      * @method
      * Метод инициализирует поля, хранящие описательные характеристики актуатора.
-     * @param {ActuatorPropsType} _actuatorProps 
+     * @param {ActuatorOptsType} _actuatorProps 
      */
     InitProps(_actuatorProps) { 
         this._Id                = _actuatorProps.id;
         this._QuantityChannel   = _actuatorProps.quantityChannel;
         this._Name              = _actuatorProps.name
         this._Type              = _actuatorProps.type;
-        this._TypeInSignals      = _actuatorProps.typeInSignals;
+        this._TypeInSignals     = _actuatorProps.typeInSignals;
         this._ChannelNames      = _actuatorProps.channelNames;
         this._BusTypes          = _actuatorProps.busTypes;
         this._ManufacturingData = _actuatorProps.manufacturingData || {};
@@ -90,13 +85,13 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @param {ActuatorPropsType} _actuatorProps 
      * @param {ActuatorOptsType} _opts
      */
-    constructor(_opts, _actuatorProps) {
-        ClassAncestorActuator.apply(this, [_opts, _actuatorProps]);
+    constructor(_opts) {
+        ClassAncestorActuator.call(this, _opts);
         this._Channels = [];
         this._IsChOn = [];
         this._Offsets = [];
         this._Values = [];
-
+        this._ChStatus = [];
         this.InitChannels();
         
         // Object.emit('new-device', this);
@@ -116,8 +111,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @returns {ClassChannelActuator}
      */
     GetChannel(_num) {
-        const num = _num;
-        return this._Channels[num];
+        return this._Channels[_num];
         // if (this._Channels[num] instanceof ClassChannelActuator) return this._Channels[num];
         // return null;
     }
@@ -129,22 +123,23 @@ class ClassMiddleActuator extends ClassAncestorActuator {
         for (let i = 0; i < this._QuantityChannel; i++) {
             this._Channels[i] = new ClassChannelActuator(this, i);  // инициализируем и сохраняем объекты каналов 
             
-            const initOn = (i => {     //применяется IIFE для замыкания значения i (необходимо для версий Espruino, в которых поведение let отличается от стандарта)
-                const on = this.On.bind(this);
-                //создание декоратора над On() для трансформации
-                this.On = (_chNum, _val) => {
-                    let val = this._Channels[i]._DataRefine.TransformValue(_val);
-                    val = this._Channels[i]._DataRefine.SuppressValue(val);
-                    this._Channels[i]._Alarms.CheckZone(val);  
-                    return on(_chNum, val);
-                };
-            })(i);
+            // const initOn = (i => {     //применяется IIFE для замыкания значения i (необходимо для версий Espruino, в которых поведение let отличается от стандарта)
+            //     const on = this.On.bind(this);
+            //     // создание декоратора над On() для трансформации
+            //     this.On = (_chNum, _val) => {
+            //         // let val = this._Channels[i]._DataRefine.TransformValue(_val);
+            //         // val = this._Channels[i]._DataRefine.SuppressValue(val);
+            //         // this._Channels[i]._Alarms.CheckZone(val);  
+            //         return on(_chNum, _val);
+            //     };
+            // })(i);
+            this._IsChOn[i] = false;
+            this._ChStatus[i] = 0;
         }
-        this._IsChOn[i] = false;
     }
     /**
      * @method
-     * Обязывает инициализировать стандратные таски модуля
+     * Обязывает инициализировать стандартные таски модуля
      */
     InitTasks() {}
     /**
@@ -152,7 +147,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * Метод, обязывающий вернуть объект, хранящий информацию об актуаторе
      * @returns {Object}
      */
-    GetInfo() { return {}; }
+    GetInfo(_chNum) {  }
     /**
      * @method
      * Обязывает выполнить инициализацию актуатора, применив необходимые для его работы настройки
@@ -166,7 +161,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      * @param {Number} _val - некоторый параметр, значение которого далее автоматически проходит через сервисные функции мат.обработки. В зависимости от реализации каждого отдельно взятого модуля может разниться.  
      * @returns {Boolean} 
      */
-    On(_chNum, _val) { throw new Error('Not implemented'); }
+    On(_chNum, _val, _opts) { throw new Error('Not implemented'); }
     /**
      * @method
      * Обязывает прекратить работу заданного канала. 
@@ -216,9 +211,9 @@ class ClassChannelActuator {
 
         this._ThisActuator = actuator;      //ссылка на объект физического актуатора
         this._NumChannel = num;             //номер канала (начиная с 0)
-        this._DataRefine = new ClassDataRefine();
-        this._Alarms = new ClassAlarms();
-        actuator._Channels[num] = this;
+        // this._DataRefine = new ClassDataRefine();
+        // this._Alarms = new ClassAlarms();
+        // actuator._Channels[num] = this;
     }
     get Value() { return this._ThisActuator._Values[this._NumChannel]; }
     /**
@@ -227,6 +222,8 @@ class ClassChannelActuator {
      * @returns {String}
      */
     get ID() { return `${this._ThisActuator.ID}-${('0'+this._ThisActuator._QuantityChannel).slice(-2)}-${('0'+this._NumChannel).slice(-2)}`; }
+    
+    get Status() { return this._ThisActuator._ChStatus[this._NumChannel]; }
     /**
      * @getter
      * Возвращает работает ли канал
@@ -255,28 +252,28 @@ class ClassChannelActuator {
      * @param {Number} _freq
      * @returns {Boolean} 
      */
-    On(_freq) {
-        return this._ThisActuator.On(this._NumChannel, _freq);
+    On(_val, _opts) {
+        return this._ThisActuator.On(this._NumChannel, _val, _opts);
     }
     /**
      * @method
      * Метод прекращает работу канала актуатора.
      */
-    Off() { 
-        return this._ThisActuator.Off(this._NumChannel); 
+    Off(_opts) { 
+        return this._ThisActuator.Off(this._NumChannel, _opts); 
     }
     /**
      * @method
      * Выполняет перезагрузку актуатора
      */
-    Reset() { return this._ThisActuator.Reset.apply(this._ThisActuator, arguments); }
+    Reset(_chNum) { return this._ThisActuator.Reset.apply(this._ThisActuator, arguments); }
     /**
      * @method
      * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
     Configure(_opts) {
-        return this._ThisActuator.Configure.apply(this._ThisActuator, arguments);
+        return this._ThisActuator.Configure(this._NumChannel, _opts);
     }
     /**
      * @method
@@ -332,6 +329,7 @@ class ClassChannelActuator {
         this.Off();
         return true;
     }
+    GetInfo(_opts) { return this._ThisActuator.GetInfo(this._NumChannel, _opts); }
 }
 /**
  * @class
