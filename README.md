@@ -56,11 +56,11 @@
 ```js
 //Инициализация 
 const bz = SensorManager.CreateDevice('00')[0];
-//Запуск работы зуммера с частотой 600 Гц
-bz.On(600);
+//Запуск работы зуммера с частотой 60% от максимальной
+bz.On(0.6);
 //Запуск с другой частотой через 1 сек
 setTimeout(() => { 
-    bz.On(1000);    
+    bz.On(0.4);    
 }, 1500);
 //Прекращение работы
 setTimeout(() => { 
@@ -78,10 +78,10 @@ setTimeout(() => {
 bz.RunTask('PlaySound', { freq: 300, numRep: 1, prop: 0.5, pulseDur: 800 });  
 .then(
     // Вызов пика через таск, принимающий частоту и длину импульса 
-    () => bz.RunTask('BeepOnce', 500, 800);
+    () => bz.RunTask('BeepOnce', 0.5, 800);
 ).then(
     // вызов двойного звукового сигнала
-    () => bz.RunTask('BeepTwice', 800, 500);                   
+    () => bz.RunTask('BeepTwice', 0.8, 500);                   
 ).then(
     () => { console.log('Done!'); }
 );
@@ -103,7 +103,7 @@ bz.AddTask('Beep3sec', (freq) => {
     }, 3000);
 });
 
-bz.RunTask('Beep3sec', 500);
+bz.RunTask('Beep3sec', 0.5);
     .then(() => print(`Done after 3 sec!`));
 ```
 
@@ -113,7 +113,7 @@ bz.RunTask('Beep3sec', 500);
 <div style = "color: #555">
 
 ```js
-bz.RunTask('BeepTwice', 500, 1200);
+bz.RunTask('BeepTwice', 0.5, 1200);
 
 setTimeout(() => {
     bz.CancelTask();
