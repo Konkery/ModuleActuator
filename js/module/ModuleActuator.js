@@ -1,102 +1,95 @@
 /**
  * @typedef ActuatorPropsType - объект хранящий описательные характеристики актуатора
-
- */
-/**
- * @typedef ActuatorOptsType
+ * @property {String} id
+ * @property {String} article
  * @property {any} bus - шина
  * @property {[Pin]} pins - массив пинов
  * @property {Number} [address] - адрес на шине
- * @property {Number} minRange - мин. значение работы актуатора
- * @property {Number} maxRange - макс. значение работы актуатора 
  * @property {String} name
  * @property {String} type
  * @property {[String]} channelNames
- * @property {[String]} typeInSignals
- * @property {String} busTypes
- * @property {Object} manufacturingData
  */
 /**
  * @class 
  * Базовый класс в стеке модуля. 
  * Собирает в себе основные данные об актуаторе: переданные шину, пины и тд. Так же сохраняет его описательную характеристику: имя, тип вх. и вых. сигналов, типы шин которые можно использовать, количество каналов и тд.
  */
-class ClassAncestorActuator {
+class ClassBaseActuator {
     /**
      * @constructor
-     * @param {ActuatorOptsType} _opts - объект который содержит все параметры, и описательные характеристики, необходимые для инициализации и обеспечения работы актуатора
+     * @param {ActuatorPropsType} _opts - объект который содержит все параметры, и описательные характеристики, необходимые для инициализации и обеспечения работы актуатора
      */
-    constructor(_opts) {         
-        if (_opts.bus) this._Bus = _opts.bus;
-        if (_opts.pins) this._Pins = _opts.pins;
-        // if (_opts.maxRange) this._MaxRange = _opts.maxRange;
-        // if (_opts.minRange) this._MinRange = _opts.minRange;
+    constructor(_opts) {
+        this._Bus          = _opts.bus;
+        this._Pins         = _opts.pins;
+        this._Address      = _opts.address;
+        this._Id           = _opts.id;
+        this._Article      = _opts.article;
+        this._QuantityChannel = _opts.quantityChannel;
+        this._Name         = _opts.name;
+        this._Type         = _opts.type;
+        this._ChannelNames = _opts.channelNames;
 
-        this.InitProps(_opts);
+        this.CheckProps();
+
+        if (this._Type.toLowerCase() === 'hybrid') {
+            try {
+                this._SubChannels = _opts._subChannels.map(_subChId => {
+                    let dev_id = _subChId.split('-')[0];
+                    let chNum  = _subChId.split('-')[1];
+                    return SensorManager.CreateDevice(dev_id)[chNum];
+                });
+            } catch (e) {
+                Logger.Log(this._Id, Logger.LogLevel.ERROR, 'Error while parsing subChannels option');
+                throw e;
+            }
+        }
     }
     /**
      * @method
-     * Метод инициализирует поля, хранящие описательные характеристики актуатора.
-     * @param {ActuatorOptsType} _actuatorProps 
+     * Метод проверяет корректность полей объекта
      */
-    InitProps(_actuatorProps) { 
-        this._Id                = _actuatorProps.id;
-        this._QuantityChannel   = _actuatorProps.quantityChannel;
-        this._Name              = _actuatorProps.name
-        this._Type              = _actuatorProps.type;
-        this._TypeInSignals     = _actuatorProps.typeInSignals;
-        this._ChannelNames      = _actuatorProps.channelNames;
-        this._BusTypes          = _actuatorProps.busTypes;
-        this._ManufacturingData = _actuatorProps.manufacturingData || {};
-        
-        const isStrArr = (arr) => {
-            if (Array.isArray(arr)) {
-                return arr.every(i => typeof i === 'string');
-            }
-            return false;
-        }
+    CheckProps() {
+        //#region функции которые можно вынести в утилитарный класс
+        const isString = (p) => typeof p === 'string';
+        const isStringNonEmpty = (p) => typeof p === 'string' && p.length > 0;
+        const isNumberPositive = (p) => typeof p === 'number' && p > 0;
+        const isOptionalString = (p) => !p || isStringNonEmpty(p);
+        const isOptionalStringArray = (p) => !p || (Array.isArray(p) && p.every(i => isString(i)));
+        //#endregion
 
-        let isValid = {
-            _Id: (p) => typeof p === 'string',
-            _Name: (p) => typeof p === 'string', 
-            _Type: (p) => typeof p === 'string',
-            _QuantityChannel: (p) => typeof p === 'number' && p > 0,
-            _TypeInSignals: isStrArr,
-            _ChannelNames: isStrArr,
-            _BusTypes: (p) => isStrArr(p) || p.length === 0,
-            // minRanges: (p) => {
-            //     return (Array.isArray(p) && typeof p[0] === 'number' && typeof p[1] === 'number');
-            // },
-            _ManufacturingData: (p) => typeof p === 'object'
-        };
+        if (!isStringNonEmpty(this._Id)) throw new Error(`Invalid id`);
+        if (!isStringNonEmpty(this._Article)) throw new Error(`Invalid article`);
+        if (!isStringNonEmpty(this._Name)) throw new Error(`Invalid name`);
+        if (!isStringNonEmpty(this._Type)) throw new Error(`Invalid type`);
+        if (!isNumberPositive(this._QuantityChannel)) throw new Error(`Invalid quantityChannel`);
+        if (!isOptionalStringArray(this._ChannelNames)) throw new Error(`Invalid channelNames`);
 
-        ['_Id', '_Name', '_Type', '_TypeInSignal', '_ChannelNames', '_BusTypes'].forEach(propName => {
-            if (this[propName] && !isValid[propName](this[propName])) throw new Error(`Invalid prop: ${propName}`);
-        });
+        if (this._Bus instanceof I2C && typeof +this._Address != 'number')  // если _Bus это I2C шина, то обязан быть передан _Address 
+            throw new Error('Address of i2c device is not provided');
     }
 }
+
 /**
  * @class
  * Класс, который закладывает в будущие классы актуаторов поля и методы, необходимые для унификации работы с отдельными каналами, объекты которых становится возможным выделять из "реального" объекта актуатора.
  */
-class ClassMiddleActuator extends ClassAncestorActuator {
+class ClassActuator extends ClassBaseActuator {
     /**
      * @constructor
-     * @param {ActuatorPropsType} _actuatorProps 
-     * @param {ActuatorOptsType} _opts
+     * @param {ActuatorPropsType} _opts
      */
     constructor(_opts) {
-        ClassAncestorActuator.call(this, _opts);
-        this._Channels = [];
-        this._IsChOn = [];
-        this._Offsets = [];
-        this._Values = [];
-        this._ChStatus = [];
-        this.InitChannels();
-        
-        // Object.emit('new-device', this);
+        ClassBaseActuator.call(this, _opts);
+
+        this._Channels = Array(this._QuantityChannel);
+
+        for (let i = 0; i < this._QuantityChannel; i++)
+            this._Channels[i] = new ClassChannelActuator(this, i);
     }
+
     get ID() { return this._Id; }
+
     /**
      * @getter
      * Возвращает количество инстанцированных объектов каналов актуатора.
@@ -104,6 +97,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
     get CountChannels() {
         return this._Channels.filter(o => o instanceof ClassChannelActuator).length;
     }
+
     /**
      * @method
      * Возвращает объект соответствующего канала если он уже был инстанцирован. Иначе возвращает null
@@ -112,87 +106,81 @@ class ClassMiddleActuator extends ClassAncestorActuator {
      */
     GetChannel(_num) {
         return this._Channels[_num];
-        // if (this._Channels[num] instanceof ClassChannelActuator) return this._Channels[num];
-        // return null;
     }
-    /**
-     * @method
-     * Метод инициализирует объекты каналов актуатора.
-     */
-    InitChannels() {
-        for (let i = 0; i < this._QuantityChannel; i++) {
-            this._Channels[i] = new ClassChannelActuator(this, i);  // инициализируем и сохраняем объекты каналов 
-            
-            // const initOn = (i => {     //применяется IIFE для замыкания значения i (необходимо для версий Espruino, в которых поведение let отличается от стандарта)
-            //     const on = this.On.bind(this);
-            //     // создание декоратора над On() для трансформации
-            //     this.On = (_chNum, _val) => {
-            //         // let val = this._Channels[i]._DataRefine.TransformValue(_val);
-            //         // val = this._Channels[i]._DataRefine.SuppressValue(val);
-            //         // this._Channels[i]._Alarms.CheckZone(val);  
-            //         return on(_chNum, _val);
-            //     };
-            // })(i);
-            this._IsChOn[i] = false;
-            this._ChStatus[i] = 0;
-        }
-    }
+
     /**
      * @method
      * Обязывает инициализировать стандартные таски модуля
      */
-    InitTasks() {}
+    InitTasks() { }
+
     /**
      * @method
      * Метод, обязывающий вернуть объект, хранящий информацию об актуаторе
      * @returns {Object}
      */
-    GetInfo(_chNum) {  }
+    GetInfo(_chNum, _opts) { }
+
     /**
      * @method
      * Обязывает выполнить инициализацию актуатора, применив необходимые для его работы настройки
      * @param {Object} [_opts] 
      */
     Init(_opts) { }
+
     /**
      * @method
-     * Обязывает начать работу определенного канала актуатора. 
+     * @description Обязывает изменить состояние указанного канала актуатора.
      * @param {Number} _chNum - номер канала 
-     * @param {Number} _val - некоторый параметр, значение которого далее автоматически проходит через сервисные функции мат.обработки. В зависимости от реализации каждого отдельно взятого модуля может разниться.  
+     * @param {Number} _val - значение состояния актуатора. Автоматически проходит через сервисные функции мат.обработки. 
+     * @param {object} _opts - дополнительные параметры 
+     */
+    SetValue(_chNum, _val, _opts) { }
+
+    /**
+     * @method
+     * Обязывает подать питание на актуатор. 
+     * 
      * @returns {Boolean} 
      */
-    On(_chNum, _val, _opts) { throw new Error('Not implemented'); }
+    On(_chNum, _opts) { }
+
     /**
      * @method
-     * Обязывает прекратить работу заданного канала. 
+     * Обязывает выключить актуатор. 
      * @param {Number} _chNum - номер канала, работу которого необходимо прекратить
      */
-    Off(_chNum)      { throw new Error('Not implemented'); }
+    Off(_chNum, _opts) { }
+
     /**
      * @method
      * Обязывает выполнить дополнительную конфигурацию актуатора - настройки, которые в общем случае необходимы для работы актуатора, но могут переопределяться в процессе работы, и потому вынесены из метода Init() 
      * @param {Object} [_opts] - объект с конфигурационными параметрами
      */
-    Configure(_opts) { throw new Error('Not implemented'); }
+    Configure(_chNum, _opts) { }
+
     /**
      * @method
      * Обязывает выполнить перезагрузку актуатора
      */
-    Reset()          { throw new Error('Not implemented'); }
+    Reset(_chNum) { }
+
     /**
      * @method
      * Обеспечивает чтение с регистра
      * @param {Number} _reg 
      */
-    Read(_reg)       { throw new Error('Not implemented'); }
+    Read(_reg) { }
+
     /**
      * @method
      * Обеспечивает запись в регистр
      * @param {Number} _reg 
      * @param {Number} _val 
      */
-    Write(_reg, _val) { throw new Error('Not implemented'); }
+    Write(_reg, _val) { }
 }
+
 /**
  * @class
  * Класс, представляющий каждый отдельно взятый канал актуатора. При чем, каждый канал является "синглтоном" для своего родителя.  
@@ -200,7 +188,7 @@ class ClassMiddleActuator extends ClassAncestorActuator {
 class ClassChannelActuator {
     /**
      * @constructor
-     * @param {ClassMiddleActuator} actuator - ссылка на основной объект актуатора
+     * @param {ClassActuator} actuator - ссылка на основной объект актуатора
      * @param {Number} num - номер канала
      */
     constructor(actuator, num) {
@@ -209,72 +197,89 @@ class ClassChannelActuator {
         this._Tasks = {};
         this._ActiveTask = null;
 
-        this._ThisActuator = actuator;      //ссылка на объект физического актуатора
-        this._NumChannel = num;             //номер канала (начиная с 0)
-        // this._DataRefine = new ClassDataRefine();
-        // this._Alarms = new ClassAlarms();
-        // actuator._Channels[num] = this;
+        this._ThisActuator = actuator;      // ссылка на объект физического актуатора
+        this._ChNum = num;              // номер канала (начиная с 0)
+
+        this._Transform = new ClassTransform(this);
+        this._Suppression = new ClassSuppression(this);
+        this._Status = 0;
     }
-    get Value() { return this._ThisActuator._Values[this._NumChannel]; }
+
+    get Suppression() { return this._Suppression; }
+
+    get Transform()   { return this._Transform; }
+
     /**
      * @getter
      * Возвращает уникальный идентификатор канала
-     * @returns {String}
      */
-    get ID() { return `${this._ThisActuator.ID}-${('0'+this._ThisActuator._QuantityChannel).slice(-2)}-${('0'+this._NumChannel).slice(-2)}`; }
-    
-    get Status() { return this._ThisActuator._ChStatus[this._NumChannel]; }
+    get ID() { 
+        return `${this._ThisActuator.ID}-${this._ChNum}`; 
+    }
+
     /**
      * @getter
-     * Возвращает работает ли канал
-     * @returns {Boolean} 
+     * Возвращает статус измерительного канала: 0 - не опрашивается, 1 - опрашивается, 2 - в переходном процессе
      */
-    get IsOn() { return this._ThisActuator._IsChOn[this._NumChannel]; }
+    get Status() {
+        return this._Status;
+    }
+
+    set Status(_s) {
+        if (typeof _s == 'number') this._Status = _s;
+        return this._Status;
+    }
+
     /**
      * @method
      * Возвращает активный в данный момент таск либо null
      * @returns {ClassTask}
      */
-    get ActiveTask() { 
+    get ActiveTask() {
         for (let key in this._Tasks) {
             if (this._Tasks[key]._IsActive) return this._Tasks[key];
         }
-        return null; 
+        return null;
     }
+    
     /**
      * @method
      * Устанавливает базовые таски актутора
      */
-    InitTasks() { return this._ThisActuator.InitTasks(this._NumChannel); }
+    InitTasks() {
+        return this._ThisActuator.InitTasks(this._ChNum);
+    }
     /**
      * @method
-     * Метод обязывает запустить работу актуатора
-     * @param {Number} _freq
+     * Метод обязывает изменить состояние актуатора
+     * @param {number} _val
+     * @param {object} [_opts]
      * @returns {Boolean} 
      */
-    On(_val, _opts) {
-        return this._ThisActuator.On(this._NumChannel, _val, _opts);
+    SetValue(_val, _opts) {
+        let val = this._Suppression.SuppressValue(_val);
+        val = this._Transform.TransformValue(val);
+
+        return this._ThisActuator.SetValue(this._ChNum, val, _opts) ? this : false
     }
-    /**
-     * @method
-     * Метод прекращает работу канала актуатора.
-     */
-    Off(_opts) { 
-        return this._ThisActuator.Off(this._NumChannel, _opts); 
-    }
+
     /**
      * @method
      * Выполняет перезагрузку актуатора
      */
-    Reset(_chNum) { return this._ThisActuator.Reset.apply(this._ThisActuator, arguments); }
+    Reset(_opts) {
+        return this._ThisActuator.Reset(this._ChNum, _opts);
+    }
+
     /**
      * @method
-     * Метод обязывающий выполнить конфигурацию актуатора либо значениями по умолчанию, либо согласно параметру _opts 
+     * Метод предназначен для выполнения конфигурации актуатора
      * @param {Object} _opts - объект с конфигурационными параметрами
      */
     Configure(_opts) {
-        return this._ThisActuator.Configure(this._NumChannel, _opts);
+        return this._ThisActuator.Configure(this._ChNum, _opts) ? this : false;
     }
+
     /**
      * @method
      * Добавляет новый таск и создает геттер на него 
@@ -283,9 +288,11 @@ class ClassChannelActuator {
      */
     AddTask(_name, _func) {
         if (typeof _name !== 'string' || typeof _func !== 'function') throw new Error('Invalid arg');
-        
+
         this._Tasks[_name] = new ClassTask(this, _func);
+        return this;
     }
+
     /**
      * @method
      * Удаляет таск из коллекции по его имени
@@ -293,8 +300,9 @@ class ClassChannelActuator {
      * @returns {Boolean} 
      */
     RemoveTask(_name) {
-        return delete this._Tasks[_name]; 
+        return delete this._Tasks[_name];
     }
+
     /**
      * @method
      * Запускает таск по его имени с передачей аргументов.
@@ -303,11 +311,12 @@ class ClassChannelActuator {
      * Примечание! аргументы передаются в метод напрямую (НЕ как массив)  
      * @returns {Boolean}
      */
-    RunTask(_name, _args) {
+    RunTask(_name, _arg1, _arg2) {
         if (!this._Tasks[_name]) return false;
         let args = [].slice.call(arguments, 1);
         return this._Tasks[_name].Invoke(args);
     }
+
     /**
      * @method
      * Устанавливает текущий активный таск как выполненный.
@@ -316,147 +325,31 @@ class ClassChannelActuator {
     ResolveTask(_code) {
         this.ActiveTask.Resolve(_code || 0);
     }
+
     /**
      * @method
      * Прерывает выполнение текущего таска. 
-     * Примечание: не рекомендуется к использованию, так как может вызвать ошибки
+     * 
+     * Примечание: не рекомендуется к использованию при штатной работе, так как не влияет на работу актуатора, а только изменяет состояние системных флагов
      * @returns {Boolean}
      */
     CancelTask() {
         if (!this.ActiveTask) return false;
 
         this.ActiveTask.Resolve();
-        this.Off();
         return true;
     }
-    GetInfo(_opts) { return this._ThisActuator.GetInfo(this._NumChannel, _opts); }
-}
-/**
- * @class
- * Класс реализующий функционал для обработки числовых значений по задаваемым ограничителям (лимитам) и заданной линейной функции 
- * */
-class ClassDataRefine {
-    constructor() {
-        this._Values = [];  //[ 0 : limLow, 1: limHigh 2: _k, 3: _b ]
-        this.SetLim(-Infinity, Infinity);
-        this.SetTransformFunc(1, 0);
-    }
-    /**
-     * @method
-     * Метод устанавливает границы супрессорной функции
-     * @param {Number} _limLow 
-     * @param {Number} _limHigh 
-     */
-    SetLim(_limLow, _limHigh) {
-        if (typeof _limLow !== 'number' || typeof _limHigh !== 'number') throw new Error('Not a number');
 
-        if (_limLow >= _limHigh) throw new Error('limLow value shoud be less than limHigh');
-        this._Values[0] = _limLow;
-        this._Values[1] = _limHigh;
-        return true;
-    }
     /**
      * @method
-     * Метод возвращает значение, прошедшее через супрессорную функцию
-     * @param {Number} val 
-     * @returns {Number}
+     * Метод предназначен для предоставления дополнительных сведений об измерительном канале или физическом датчике.
+     * @param {Object} _opts - параметры запроса информации.
      */
-    SuppressValue(val) {
-        return E.clip(val, this._Values[0], this._Values[1]);
-    }
-    /**
-     * @method
-     * Устанавливает коэффициенты k и b трансформирующей линейной функции 
-     * @param {Number} _k 
-     * @param {Number} _b 
-     */
-    SetTransformFunc(_k, _b) {
-        if (typeof _k !== 'number' || typeof _b !== 'number') throw new Error('Not a number');
-        this._Values[2] = _k;
-        this._Values[3] = _b;
-        return true;
-    } 
-    /**
-     * @method
-     * Возвращает значение, преобразованное линейной функцией
-     * @param {Number} val 
-     * @returns 
-     */
-    TransformValue(val) {
-        return val * this._Values[2] + this._Values[3];
+    GetInfo(_opts) {
+        return this._ThisActuator.GetInfo(this._ChNum, _opts);
     }
 }
-const indexes = { redLow: 0, yelLow: 1, green: 2, yelHigh: 3, redHigh: 4 };
-/**
- * @class
- * Реализует функционал для работы с зонами и алармами 
- * Хранит в себе заданные границы алармов и соответствующие им колбэки.
- * Границы желтой и красной зон определяются вручную, а диапазон зеленой зоны фактически подстраивается под желтую (или красную если желтая не определена).
- * 
- */
-class ClassAlarms {
-    constructor() {
-        this._Zones = [];
-        this._Callbacks = [];
-        this._CurrZone = 'green';
-    }
-    /**
-     * @method
-     * Метод, который задает зоны измерения и их функции-обработчики
-     * @param {Object} opts 
-     */
-    SetZones(opts) {
-        const checkParams = {   // объект в котором каждой задаваемой зоне соответсвует функция, которая возвращает true если параметры, зад зоны валидны
-            green: () => (typeof opts.green.cb === 'function'),
-            yellow: () => (opts.yellow.low < opts.yellow.high),
-            red: () => (opts.red.low < opts.red.high)
-        };
-        ['red', 'yellow', 'green'].filter(zoneName => opts[zoneName]).forEach(zoneName => {
-            if (!checkParams[zoneName]) throw new Error('Incorrect args');
-        });
 
-        if (opts.yellow) {
-            if (opts.red) {
-                if (opts.yellow.low <= opts.red.low || opts.yellow.high >= opts.red.high) throw new Error('Invalid args');
-            }
-            else if (opts.yellow.low < this._Zones[indexes.redLow] || opts.yellow.high > this._Zones[indexes.redHigh]) throw new Error('Invalid args');
-            this._Zones[indexes.yelLow] = opts.yellow.low;
-            this._Zones[indexes.yelHigh] = opts.yellow.high;
-            this._Callbacks[indexes.yelLow] = opts.yellow.cbLow;
-            this._Callbacks[indexes.yelHigh] = opts.yellow.cbHigh;
-        }
-        if (opts.red) {
-            if (opts.yellow) {
-                if (opts.red.low >= opts.yellow.low || opts.red.high <= opts.yellow.high) throw new Error('Invalid args');
-            }
-            else if (opts.red.low > this._Zones[indexes.yelLow] || opts.red.high < this._Zones[indexes.yelHigh]) throw new Error('Invalid args');
-            this._Zones[indexes.redLow] = opts.red.low;
-            this._Zones[indexes.redHigh] = opts.red.high;
-            this._Callbacks[indexes.redLow] = opts.red.cbLow;
-            this._Callbacks[indexes.redHigh] = opts.red.cbHigh;
-        }
-        if (opts.green) {
-            this._Callbacks[indexes.green] = opts.green.cb;
-        }
-    }
-    /**
-     * @method
-     * Метод обновляет значение текущей зоны измерения по переданному значению и, если зона сменилась, вызывает её колбэк
-     * @param {Number} val 
-     */
-    CheckZone(val) {
-        let prevZone = this._CurrZone;
-        this._CurrZone = val < this._Zones[indexes.redLow]  ? 'redLow'
-                       : val > this._Zones[indexes.redHigh] ? 'redHigh'
-                       : val < this._Zones[indexes.yelLow]  ? 'yelLow'
-                       : val > this._Zones[indexes.yelHigh] ? 'yelHigh'
-                       : 'green';
-
-        if (prevZone !== this._CurrZone) {
-            this._Callbacks[indexes[this._CurrZone]](prevZone);
-        }
-    }
-}
 /**
  * @class
  * Представляет собой таск актуатора - обертку над прикладной функцией
@@ -479,14 +372,13 @@ class ClassTask {
      * Запускает выполнение таска
      */
     Invoke(args) {
-        console.log(this._Channel instanceof ClassChannelActuator);
         let promisified = new Promise((res, rej) => {       //над переданной функцией инициализируется промис-обертка, колбэки resolve()/reject() которого должны быть вызваны при завершении выполнения таска
 
             this.resolve = res;
             this.reject = rej;
-            
+
             if (this._Channel.ActiveTask) return this.Reject(-1);      //если уже запущен хотя бы один таск, вызов очередного отклоняется с кодом -1
-            
+
             this._IsActive = true;
 
             return this._Func.apply(this._Channel, args);                   //вызов функции, выполняемой в контексте объекта-канала
@@ -513,4 +405,87 @@ class ClassTask {
     }
 }
 
-exports = ClassMiddleActuator;
+
+/**
+ * @class
+ * Класс реализует функционал для обработки числовых значений по задаваемым ограничителям (лимитам) и функцией
+ */
+class ClassTransform {
+    constructor(_ch) {
+        this._Channel = _ch;
+        this._TransformFunc = (x) => x;
+    }
+    /**
+     * @method
+     * Задает функцию, которая будет трансформировать вх.значения.
+     * @param {Function} _func 
+     * @returns 
+     */
+    SetFunc(_func) {
+        if (!_func) {
+            this._TransformFunc = null;
+            return true;
+        }
+        if (typeof _func !== 'function') return false;
+        this._TransformFunc = _func;
+        return this._Channel;
+    }
+    /**
+     * @method
+     * Устанавливает коэффициенты k и b трансформирующей линейной функции 
+     * @param {Number} _k 
+     * @param {Number} _b 
+     */
+    SetLinearFunc(_k, _b) {
+        if (typeof _k !== 'number' || typeof _b !== 'number') throw new Error('k and b must be values');
+        this._TransformFunc = (x) => _k * x + _b;
+        return this._Channel;
+    }
+    /**
+     * @method
+     * Возвращает значение, преобразованное линейной функцией
+     * @param {Number} val 
+     * @returns 
+     */
+    TransformValue(val) {
+        return this._TransformFunc(val);
+    }
+}
+/**
+ * @class
+ * Класс реализует функционал супрессии вх. данных
+ */
+class ClassSuppression {
+    constructor(_ch) {
+        this._Channel = _ch;
+        this._Low;
+        this._High;
+        this.SetLim(-Infinity, Infinity);
+    }
+    /**
+     * @method
+     * Метод устанавливает границы супрессорной функции
+     * @param {Number} _limLow 
+     * @param {Number} _limHigh 
+     */
+    SetLim(_limLow, _limHigh) {
+        if (typeof _limLow !== 'number' || typeof _limHigh !== 'number') throw new Error('Not a number');
+
+        if (_limLow >= _limHigh) throw new Error('limLow value should be less than limHigh');
+        this._Low = _limLow;
+        this._High = _limHigh;
+        return this._Channel;
+    }
+    /**
+     * @method
+     * Метод возвращает значение, прошедшее через супрессорную функцию
+     * @param {Number} _val 
+     * @returns {Number}
+     */
+    SuppressValue(_val) {
+        return E.clip(_val, this._Low, this._High);
+    }
+}
+
+
+exports = ClassActuator;
