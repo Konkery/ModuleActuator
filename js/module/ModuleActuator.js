@@ -34,7 +34,7 @@ class ClassBaseActuator {
 
         if (this._Type.toLowerCase() === 'hybrid') {
             try {
-                this._SubChannels = _opts._subChannels.map(_subChId => {
+                this._SubChannels = _opts.subChannels.map(_subChId => {
                     let dev_id = _subChId.split('-')[0];
                     let chNum  = _subChId.split('-')[1];
                     return SensorManager.CreateDevice(dev_id)[chNum];
