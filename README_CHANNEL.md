@@ -20,29 +20,34 @@
 ### Поля
 <div style = "color: #555">
 
-- <mark style="background-color: lightblue">_ThisActuator</mark> - ссылка на основной объект актуатора;
-- <mark style="background-color: lightblue">_NumChannel</mark> - номер канала;
-- <mark style="background-color: lightblue">_DataRefine</mark> - объект класса ClassDataRefine;
+- <mark style="background-color: lightblue">_Actuator</mark> - ссылка на основной объект актуатора;
+- <mark style="background-color: lightblue">_ChNum</mark> - номер канала;
 - <mark style="background-color: lightblue">_Alarms</mark> - объект класса ClassAlarms;
+- <mark style="background-color: lightblue">_Transform</mark> - объект класса ClassTransform;
+- <mark style="background-color: lightblue">_Suppression</mark> - объект класса ClassSuppression;
 </div>
 
 ### Аксессоры
 <div style = "color: #555">
 
 - <mark style="background-color: lightblue">CountChannels</mark> - возвращает количество корректно инициализированных каналов типа **ClassChannelActuator**;
+- <mark style="background-color: lightblue">Suppression</mark> - возвращает объект *ClassSuppression*;
+- <mark style="background-color: lightblue">Transform</mark> - возвращает объект *ClassTransform*;
+- <mark style="background-color: lightblue">Alarms</mark> - возвращает объект *ClassAlarms* после его инициализации;
 - <mark style="background-color: lightblue">ID</mark> - возвращает идентификатор актуатора (канала);
-- <mark style="background-color: lightblue">IsOn</mark> - указывает, подается ли сигнал на канал в данный момент;
 - <mark style="background-color: lightblue">ActiveTask()</mark> - возвращает активный в данный момент таск либо null.
 </div>
 
 ### Методы
 <div style = "color: #555">
 
-- <mark style="background-color: lightblue">On(_freq)</mark>
-- <mark style="background-color: lightblue">Off()</mark> 
-- <mark style="background-color: lightblue">ConfigureRegs()</mark>
+- <mark style="background-color: lightblue">On(_val, _opts)</mark>
+- <mark style="background-color: lightblue">Off(_opts)</mark> 
+- <mark style="background-color: lightblue">Configure(_opts)</mark>
+- <mark style="background-color: lightblue">Reset(_opts)</mark>
+- <mark style="background-color: lightblue">GetInfo(_opts)</mark>
 
-Перечисленные выше методы ссылаются на методы, объявленные в **ClassMiddleActuator** и реализованные в прикладном классе акутатора. Их развернутое описание [по ссылке](./README_MIDDLE.md#методы).
+Перечисленные выше методы ссылаются на методы, объявленные в **ClassActuator** и реализованные в прикладном классе актутатора. Их развернутое описание [по ссылке](./README_MIDDLE.md#методы).
 
 - <mark style="background-color: lightblue">InitTasks()</mark> - инициализирует базовые таски актуатора;
 - <mark style="background-color: lightblue">AddTask(_name, _func)</mark> - создает новый таск на основе переданной функции и помещает его в коллекцию по переданному имени. Создает одноименный геттер на данный таск;

@@ -16,34 +16,28 @@
 ### Конструктор
 <div style = "color: #555">
 
-Конструктор принимает два параметра: объект типа **ActuatorPropsType** и объект типа **ActuatorOptsType**.
+Конструктор принимает объект типа **ActuatorOptsType**, наполнение которого определяется конфигом. Единственный нюанс в том, что при получении данных из конфига, еще до вызова конструктора объекта датчика, строковое представление *bus* и *pins* преобразуется в js-объекты. 
 
-Образец параметра *_actuatorProps* типа **ActuatorPropsType**: 
-```js
-const act_props = ({
-    name: "Buzzer",
-    type: "actuator",
-    channelNames: ["freq"],
-    typeInSignals: ["analog"],
-    quantityChannel: 1,
-    busTypes: [],
-    manufacturingData: {
-        IDManufacturing: [
+Рассмотрим основной набор параметров на примере конфига к [Buzzer](https://github.com/Konkery/ModuleBuzzer). Детальное пояснение к параметрам описано [ниже](./README_ANCESTOR.md/#поля).
+
+```json
+"00": {
+    "name": "Buzzer",
+    "type": "actuator",
+    "id": "00",
+    "article": "02-501-0204-201-0001",
+    "channelNames": ["freq"],
+    "typeInSignals": ["analog"],
+    "quantityChannel": 1,
+    "manufacturingData": {
+        "IDManufacturing": [
             { "Adafruit": "4328435534" }  
         ],
-        IDsupplier: [
+        "IDsupplier": [
             { "Adafruit": "4328435534" }  
         ],
-        HelpSens: "buzzer"
+        "HelpSens": "buzzer"
     }
-});
-```
-Образец параметра *_opts* типа **ActuatorOptsType**:
-```js
-const _opts = {
-    bus: bus,           //объект шины
-    pins: [B14, B15],   //массив используемых пинов 
-    address: 0x29       //адрес на шине
 }
 ```
 
@@ -61,7 +55,6 @@ const _opts = {
 - <mark style="background-color: lightblue">_ChannelNames</mark> - массив с названиями каналов;
 - <mark style="background-color: lightblue">_TypeInSignals</mark> - типы входых сигналов;
 - <mark style="background-color: lightblue">_QuantityChannel</mark> - число физических каналов актуатора;
-- <mark style="background-color: lightblue">_BusTypes</mark> - массив со строковыми представлениями типов шин, на которых может работать актуатор;
 - <mark style="background-color: lightblue">_ManufacturingData</mark> - объект со сведениями о производителе и поставщике актуатора, а так же его односложное описание;
 </div>
 
@@ -76,9 +69,9 @@ const _opts = {
 
 Данный класс применяется исключительно как звено наследования и не используется независимо. Потому наследники обязаны иметь такие же параметры конструктора, который ввиду особенностей среды выполнения Espruino вызывается таким образом:
 ```js
-ClassAncestorActuator.apply(this, [_actuatorProps, _opts]);
+ClassAncestorActuator.apply(this, [_opts]);
 /// либо
-ClassAncestorActuator.call(this, _actuatorProps, _opts);
+ClassAncestorActuator.call(this, _opts);
 ```
 </div>
 
